@@ -73,3 +73,6 @@ match /stardew/{doc} {
 
 `python tools/fetch_buffs.py` 는 한국어 위키 요리 문서들에서 버프(농사·채집·낚시·채광·공격력 …)·지속시간·
 회복량을 받아 `data/buffs.js` 를 만든다. 요리 탭에서 능력별로 골라 수치 높은 순으로 본다.
+
+`python tools/fetch_fish.py` 는 한국어 위키 물고기 문서에서 난이도(0~110)·움직임·크기·기본 판매가를 받아
+`data/fishinfo.js` 를 만든다.

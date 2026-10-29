@@ -710,24 +710,48 @@
   }
 
   // ---------------------------------------------------------------- 낚시
+  // 물고기 난이도 (위키, 0~110). 낚시 미니게임에서 물고기가 얼마나 날뛰는지.
+  const FI = window.SDV_FISH || {};
+  const fishInfo = (f) => FI[norm(f.name)] || null;
+  function diffTier(n) {
+    if (n <= 40) return ["쉬움", "easy"];
+    if (n <= 70) return ["보통", "mid"];
+    if (n <= 89) return ["어려움", "hard"];
+    return ["매우 어려움", "vhard"];
+  }
+  function diffBar(fi) {
+    if (!fi || fi.difficulty == null) return "";
+    const [label, cls] = diffTier(fi.difficulty);
+    return `<div class="diff ${cls}"><span class="dlabel">난이도 <b>${fi.difficulty}</b> · ${label}</span>
+      <span class="dbar"><i style="width:${Math.min(100, (fi.difficulty / 110) * 100).toFixed(0)}%"></i></span>
+      ${fi.move ? `<span class="sub">움직임: ${esc(fi.move)}</span>` : ""}</div>`;
+  }
+
   function pageFish(params) {
     const areas = [...new Set(D.fish.list.map((f) => f.area))];
     const fs = ui.fishSeason ?? (params.focus ? "전체" : season());
     const fw = ui.fishWeather ?? "전체";
     const fa = ui.fishArea ?? "전체";
-    const list = D.fish.list.filter((f) => (fs === "전체" || f.seasons.includes(fs)) && fishWeatherOk(f, fw) && (fa === "전체" || f.area === fa));
+    const fo = ui.fishSort ?? "sheet";
+    let list = D.fish.list.filter((f) => (fs === "전체" || f.seasons.includes(fs)) && fishWeatherOk(f, fw) && (fa === "전체" || f.area === fa));
+    const dv = (f) => (fishInfo(f) && fishInfo(f).difficulty != null ? fishInfo(f).difficulty : 999);
+    if (fo === "easy") list = [...list].sort((a, b) => dv(a) - dv(b));
+    if (fo === "hard") list = [...list].sort((a, b) => (dv(b) % 999) - (dv(a) % 999));
     let h = `<h1>🎣 낚시</h1>${notesBlock(D.fish.notes, D.fish.video)}
       ${filterRow("fishSeason", ["전체", ...SEASONS].map((x) => [x, x]), fs)}
       ${filterRow("fishWeather", [["전체", "날씨 전체"], ["맑음", "☀️ 맑음"], ["비", "🌧️ 비"]], fw)}
       ${filterRow("fishArea", ["전체", ...areas].map((x) => [x, x === "전체" ? "장소 전체" : x]), fa)}
+      ${filterRow("fishSort", [["sheet", "시트 순서"], ["easy", "쉬운 순"], ["hard", "어려운 순"]], fo)}
       <p class="small muted">📦 = 번들에 아직 필요. 진저섬·광산·통발·그 외 장소는 계절 상관없이 보여요.</p>`;
     if (!list.length) h += `<div class="empty">조건에 맞는 물고기가 없어요.</div>`;
     for (const f of list) {
       const all = f.seasons.length === 4;
       h += `<div class="card" id="x-${esc(norm(f.area + f.name))}">
-        <div class="daybar" style="flex-wrap:wrap">${ii(f.name, 32)}<span class="title">${esc(f.name)}${needMark(f.name)}</span>
-          <span class="sub">${esc(f.area)}${f.sub ? " · " + esc(f.sub) : ""}</span>
+        <div class="fishhead"><span class="bigslot">${ii(f.name, 44)}</span>
+          <div style="min-width:0;flex:1"><div class="daybar" style="flex-wrap:wrap"><span class="title">${esc(f.name)}${needMark(f.name)}</span>
           <span class="right">${all ? `<span class="sub">모든 계절</span>` : f.seasons.map(tag).join(" ")}</span></div>
+          <div class="sub">${esc(f.area)}${f.sub ? " · " + esc(f.sub) : ""}${fishInfo(f) && fishInfo(f).price ? ` · 💰 ${fishInfo(f).price}g` : ""}</div>
+          ${diffBar(fishInfo(f))}</div></div>
         <dl class="kv">
           ${f.time ? `<dt>시간</dt><dd>${br(f.time)}</dd>` : ""}
           ${f.weather ? `<dt>날씨</dt><dd>${br(f.weather)}</dd>` : ""}

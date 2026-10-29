@@ -327,3 +327,13 @@ details.bad > summary { cursor: pointer; color: var(--muted); font-weight: 700; 
 
 .chips.buffs { margin: 6px 0 0; align-items: center; }
 .chip.buff { background: #d9eefc; color: #1f4e79; font-weight: 700; }
+
+/* 물고기: 큰 그림 + 난이도 막대 (게임 낚시 바처럼 초록→빨강) */
+.fishhead { display: flex; gap: 12px; align-items: center; }
+.diff { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; font-size: 14px; }
+.dbar { flex: 1 1 120px; height: 10px; border: 2px solid var(--wood-dark); border-radius: 3px; background: #fff6dc; overflow: hidden; min-width: 100px; }
+.dbar i { display: block; height: 100%; }
+.diff.easy .dbar i { background: #6cbf3a; } .diff.easy b { color: #3d7d1e; }
+.diff.mid .dbar i { background: #e2b33a; } .diff.mid b { color: #9a6b00; }
+.diff.hard .dbar i { background: #e07a2e; } .diff.hard b { color: #b5521a; }
+.diff.vhard .dbar i { background: #c8381f; } .diff.vhard b { color: var(--rec); }
