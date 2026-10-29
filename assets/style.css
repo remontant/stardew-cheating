@@ -28,7 +28,9 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+/* 버튼을 빠르게 연달아 누를 때(다음 날 ▶ 등) 두 번 탭 확대가 걸리지 않게. 두 손가락 확대는 그대로 둔다. */
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
+a, button, label, input, summary, .f, .chip { touch-action: manipulation; }
 body {
   margin: 0;
   background: var(--bg);
