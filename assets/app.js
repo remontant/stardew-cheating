@@ -254,6 +254,69 @@
     return h + `</div>`;
   }
 
+  // 농사 달력: 심는 날을 고르면 자라는 날·수확일을 계절 달력 위에 칠한다.
+  // 날짜를 누르면 그날 심는 걸로 바뀐다. 다계절 작물은 이어지는 계절 달력까지 그린다.
+  function farmCal(c) {
+    if (c.seasons.includes("그 외")) return "";
+    const st = ((ui.fc ||= {})[c.name] ||= {});
+    const own = SEASONS.filter((x) => c.seasons.includes(x));
+    const ps = st.season ?? (own.includes(season()) ? season() : own[0]);
+    const fert = st.fert ?? 0, pro = !!st.pro;
+    const g = c.grow[fert + (pro ? 4 : 0)];
+    if (typeof g !== "number") return "";
+    const si = SEASONS.indexOf(ps);
+    let span = 1;
+    for (let i = si + 1; i < 4 && c.seasons.includes(SEASONS[i]); i++) span++;
+    const end = span * 28;
+    const re = regrowOf(c);
+    // 계속 열리는 작물은 re 일마다, 한 번 열리는 작물은 거둔 날 바로 다시 심는다고 보고 g 일마다
+    const step = re || g;
+    const harvests = (pd) => {
+      const out = [];
+      for (let d = pd + g; d <= end; d += step) out.push(d);
+      return out;
+    };
+    const p = st.plant ?? (ps === season() ? date.d : 1);
+    const hv = harvests(p);
+    const hset = new Set(hv);
+    const nm = esc(c.name);
+
+    // 며칠에 심으면 몇 번 거두나 — 같은 횟수끼리 묶어서 "1~4일 3번" 처럼
+    const counts = Array.from({ length: 28 }, (_, i) => harvests(i + 1).length);
+    const groups = [];
+    counts.forEach((n, i) => {
+      const last = groups[groups.length - 1];
+      if (last && last.n === n) last.to = i + 1; else groups.push({ n, from: i + 1, to: i + 1 });
+    });
+    const sum = groups.map((x) => `<span class="${x.n ? "" : "muted"}">${ps} ${x.from}${x.to > x.from ? "~" + x.to : ""}일 → ${x.n ? `<b>${x.n}번</b>` : "못 거둠"}</span>`).join("<br>");
+
+    let h = `<div class="plant"><b>📆 농사 달력</b> <span class="small muted">날짜를 누르면 그날 심는 걸로 바뀌어요</span>`;
+    if (own.length > 1) h += `<div class="filters" style="margin:6px 0 0;padding:0">${own.map((x) => `<button class="f${x === ps ? " on" : ""}" data-fc="${nm}" data-k="season" data-v="${x}">${x}에 심기</button>`).join("")}</div>`;
+    h += `<div class="filters" style="margin:6px 0 0;padding:0;flex-wrap:wrap">${["비료X", "성장촉진", "디럭스", "하이퍼"].map((l, i) => `<button class="f${i === fert ? " on" : ""}" data-fc="${nm}" data-k="fert" data-v="${i}">${l}</button>`).join("")}
+      <button class="f${pro ? " on" : ""}" data-fc="${nm}" data-k="pro">농업전문가</button></div>`;
+    for (let k = 0; k < span; k++) {
+      const sn = SEASONS[si + k];
+      const days = D.calendar.days[sn] || {};
+      h += `<div class="fcal-title">${tag(sn)}</div><div class="fcal">${DOW.map((d) => `<div class="dow">${d}</div>`).join("")}`;
+      for (let d = 1; d <= 28; d++) {
+        const abs = k * 28 + d;
+        let cls = "", ico = "";
+        if (abs === p) { cls = "pl"; ico = "🫘"; }
+        else if (hset.has(abs)) { cls = "hv"; ico = "🧺"; }
+        else if (hv.length && abs > p && abs < hv[0]) { cls = "gr"; ico = "🌱"; }
+        else if (hv.length && abs > hv[0] && abs < hv[hv.length - 1]) { cls = re ? "rg" : "gr"; ico = re ? "🌿" : "🌱"; }
+        const ev = (days[d] && days[d].events[0]) || "";
+        const today = sn === season() && d === date.d ? " today" : "";
+        h += `<button class="${cls}${today}" data-fc="${nm}" data-k="day" data-s="${sn}" data-v="${d}"><span class="n">${d}</span><span class="ico">${ico}</span>${ev ? `<span class="ev">${esc(ev)}</span>` : ""}</button>`;
+      }
+      h += `</div>`;
+    }
+    h += `<p class="small" style="margin:8px 0 4px">🫘 <b>${ps} ${p}일</b> 심기 → ${hv.length ? `🧺 첫 수확 <b>${SEASONS[si + Math.floor((hv[0] - 1) / 28)]} ${((hv[0] - 1) % 28) + 1}일</b>, 계절 끝까지 <b>${hv.length}번</b> 수확${re ? "" : " <span class=\"muted\">(거둔 날 다시 심는 기준)</span>"}` : `<span class="muted">계절 안에 못 거둬요</span>`}</p>
+      <details class="fsum"><summary class="small">며칠에 심으면 몇 번 거둘까?</summary><p class="small" style="margin:4px 0 0">${sum}</p></details>`;
+    if (c.seasons.includes("봄") && c.source.includes("축제")) h += `<p class="small muted" style="margin:4px 0 0">씨앗은 축제에서 사요. 축제날은 끝나고 와서 심기!</p>`;
+    return h + `</div>`;
+  }
+
   function pageHome() {
     const s = season();
     const today = (D.calendar.days[s] || {})[date.d] || { birthdays: [], events: [] };
@@ -408,7 +471,7 @@
   function cropBody(c) {
     const g = c.grow, sl = c.sell;
     const row = (label, arr) => `<tr><td>${label}</td>${arr.map((x) => `<td>${x ?? "-"}</td>`).join("")}</tr>`;
-    let h = plantNow(c) + `<dl class="kv"><dt>씨앗</dt><dd>${br(c.source)}</dd><dt>씨앗값</dt><dd>${typeof c.seedPrice === "number" ? gold(c.seedPrice) : br(c.seedPrice)}</dd>
+    let h = plantNow(c) + farmCal(c) + `<dl class="kv"><dt>씨앗</dt><dd>${br(c.source)}</dd><dt>씨앗값</dt><dd>${typeof c.seedPrice === "number" ? gold(c.seedPrice) : br(c.seedPrice)}</dd>
       ${c.memo ? `<dt>참고</dt><dd>${esc(c.memo)}</dd>` : ""}</dl>`;
     if (c.notes.length) h += `<ul class="plain">${c.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`;
     const lb = lovedBy.get(norm(c.name));
@@ -676,6 +739,21 @@
       watchFarm();
       searchIndex = null;
       showFarm();
+      render(true);
+      return;
+    }
+    const fcb = e.target.closest("[data-fc]");
+    if (fcb) {
+      const st = ((ui.fc ||= {})[fcb.dataset.fc] ||= {});
+      const k = fcb.dataset.k, v = fcb.dataset.v;
+      if (k === "pro") st.pro = !st.pro;
+      else if (k === "fert") st.fert = +v;
+      else if (k === "season") { st.season = v; delete st.plant; }
+      else if (k === "day") {
+        // 다계절 작물 달력의 뒤쪽 계절 날짜를 누르면 그 계절에 심는 걸로 본다
+        if (v && fcb.dataset.s !== (st.season ?? fcb.dataset.s)) st.season = fcb.dataset.s;
+        st.season = fcb.dataset.s; st.plant = +v;
+      }
       render(true);
       return;
     }
