@@ -285,6 +285,49 @@
       <p class="small muted" style="margin:4px 0 0">${st.stages.filter((x) => x.kind !== "stage").map((x) => esc(x.label.replace("Total:", "총").replace("Regrowth:", "재수확").replace(/Days?/, "일"))).join(" · ")}</p></div>`;
   }
 
+  // 계절 달력 위에 심기·자라는 날·수확일을 칠한다. interactive 면 날짜 칸이 「그날 심기」 버튼이 된다.
+  function drawCal(c, { si, span, p, g, re, hv, interactive, seasons = span }) {
+    const hset = new Set(hv);
+    const nm = esc(c.name);
+    let h = "";
+    for (let k = 0; k < Math.min(span, seasons); k++) {
+      const sn = SEASONS[si + k];
+      const days = D.calendar.days[sn] || {};
+      h += `${span > 1 || interactive ? `<div class="fcal-title">${tag(sn)}</div>` : ""}<div class="fcal${interactive ? "" : " mini"}">${DOW.map((d) => `<div class="dow">${d}</div>`).join("")}`;
+      for (let d = 1; d <= 28; d++) {
+        const abs = k * 28 + d;
+        let cls = "", ico = "";
+        // 그림이 있으면 그날 단계의 도트를, 없으면 이모지를 쓴다
+        const sp = (src, fb) => (src ? px(src, interactive ? 26 : 22) : fb);
+        if (abs === p) { cls = "pl"; ico = sp(stageImg(c.name, 0, g), "🫘"); }
+        else if (hset.has(abs)) { cls = "hv"; ico = sp(ST[c.name] && ST[c.name].icon, "🧺"); }
+        else if (hv.length && abs > p && abs < hv[0]) { cls = "gr"; ico = sp(stageImg(c.name, abs - p, g), "🌱"); }
+        else if (hv.length && abs > hv[0] && abs < hv[hv.length - 1]) {
+          cls = re ? "rg" : "gr";
+          ico = re ? sp(regrowImg(c.name) || stageImg(c.name, g - 1, g), "🌿") : sp(stageImg(c.name, (abs - p) % g, g), "🌱");
+        }
+        const ev = interactive && days[d] && days[d].events[0] || "";
+        const today = sn === season() && d === date.d ? " today" : "";
+        const inner = `<span class="n">${d}</span><span class="ico">${ico}</span>${ev ? `<span class="ev">${esc(ev)}</span>` : ""}`;
+        h += interactive
+          ? `<button class="${cls}${today}" data-fc="${nm}" data-k="day" data-s="${sn}" data-v="${d}">${inner}</button>`
+          : `<div class="cell ${cls}${today}">${inner}</div>`;
+      }
+      h += `</div>`;
+    }
+    return h;
+  }
+  // 심는 날 p(이번 계절 1일=1) 부터 계절 끝 end 까지의 수확일들
+  function harvestDays(c, g, p, end) {
+    const re = regrowOf(c);
+    // 계속 열리는 작물은 re 일마다, 한 번 열리는 작물은 거둔 날 바로 다시 심는다고 보고 g 일마다
+    const step = re || g;
+    const out = [];
+    for (let d = p + g; d <= end; d += step) out.push(d);
+    return out;
+  }
+  const spanOf = (c, si) => { let n = 1; for (let i = si + 1; i < 4 && c.seasons.includes(SEASONS[i]); i++) n++; return n; };
+
   // 농사 달력: 심는 날을 고르면 자라는 날·수확일을 계절 달력 위에 칠한다.
   // 날짜를 누르면 그날 심는 걸로 바뀐다. 다계절 작물은 이어지는 계절 달력까지 그린다.
   function farmCal(c) {
@@ -296,20 +339,12 @@
     const g = c.grow[fert + (pro ? 4 : 0)];
     if (typeof g !== "number") return "";
     const si = SEASONS.indexOf(ps);
-    let span = 1;
-    for (let i = si + 1; i < 4 && c.seasons.includes(SEASONS[i]); i++) span++;
+    const span = spanOf(c, si);
     const end = span * 28;
     const re = regrowOf(c);
-    // 계속 열리는 작물은 re 일마다, 한 번 열리는 작물은 거둔 날 바로 다시 심는다고 보고 g 일마다
-    const step = re || g;
-    const harvests = (pd) => {
-      const out = [];
-      for (let d = pd + g; d <= end; d += step) out.push(d);
-      return out;
-    };
+    const harvests = (pd) => harvestDays(c, g, pd, end);
     const p = st.plant ?? (ps === season() ? date.d : 1);
     const hv = harvests(p);
-    const hset = new Set(hv);
     const nm = esc(c.name);
 
     // 며칠에 심으면 몇 번 거두나 — 같은 횟수끼리 묶어서 "1~4일 3번" 처럼
@@ -325,28 +360,7 @@
     if (own.length > 1) h += `<div class="filters" style="margin:6px 0 0;padding:0">${own.map((x) => `<button class="f${x === ps ? " on" : ""}" data-fc="${nm}" data-k="season" data-v="${x}">${x}에 심기</button>`).join("")}</div>`;
     h += `<div class="filters" style="margin:6px 0 0;padding:0;flex-wrap:wrap">${["비료X", "성장촉진", "디럭스", "하이퍼"].map((l, i) => `<button class="f${i === fert ? " on" : ""}" data-fc="${nm}" data-k="fert" data-v="${i}">${l}</button>`).join("")}
       <button class="f${pro ? " on" : ""}" data-fc="${nm}" data-k="pro">농업전문가</button></div>`;
-    for (let k = 0; k < span; k++) {
-      const sn = SEASONS[si + k];
-      const days = D.calendar.days[sn] || {};
-      h += `<div class="fcal-title">${tag(sn)}</div><div class="fcal">${DOW.map((d) => `<div class="dow">${d}</div>`).join("")}`;
-      for (let d = 1; d <= 28; d++) {
-        const abs = k * 28 + d;
-        let cls = "", ico = "";
-        // 그림이 있으면 그날 단계의 도트를, 없으면 이모지를 쓴다
-        const sp = (src, fb) => (src ? px(src, 26) : fb);
-        if (abs === p) { cls = "pl"; ico = sp(stageImg(c.name, 0, g), "🫘"); }
-        else if (hset.has(abs)) { cls = "hv"; ico = sp(ST[c.name] && ST[c.name].icon, "🧺"); }
-        else if (hv.length && abs > p && abs < hv[0]) { cls = "gr"; ico = sp(stageImg(c.name, abs - p, g), "🌱"); }
-        else if (hv.length && abs > hv[0] && abs < hv[hv.length - 1]) {
-          cls = re ? "rg" : "gr";
-          ico = re ? sp(regrowImg(c.name) || stageImg(c.name, g - 1, g), "🌿") : sp(stageImg(c.name, (abs - p) % g, g), "🌱");
-        }
-        const ev = (days[d] && days[d].events[0]) || "";
-        const today = sn === season() && d === date.d ? " today" : "";
-        h += `<button class="${cls}${today}" data-fc="${nm}" data-k="day" data-s="${sn}" data-v="${d}"><span class="n">${d}</span><span class="ico">${ico}</span>${ev ? `<span class="ev">${esc(ev)}</span>` : ""}</button>`;
-      }
-      h += `</div>`;
-    }
+    h += drawCal(c, { si, span, p, g, re, hv, interactive: true });
     h += `<p class="small" style="margin:8px 0 4px">🫘 <b>${ps} ${p}일</b> 심기 → ${hv.length ? `🧺 첫 수확 <b>${SEASONS[si + Math.floor((hv[0] - 1) / 28)]} ${((hv[0] - 1) % 28) + 1}일</b>, 계절 끝까지 <b>${hv.length}번</b> 수확${re ? "" : " <span class=\"muted\">(거둔 날 다시 심는 기준)</span>"}` : `<span class="muted">계절 안에 못 거둬요</span>`}</p>
       <details class="fsum"><summary class="small">며칠에 심으면 몇 번 거둘까?</summary><p class="small" style="margin:4px 0 0">${sum}</p></details>`;
     if (c.seasons.includes("봄") && c.source.includes("축제")) h += `<p class="small muted" style="margin:4px 0 0">씨앗은 축제에서 사요. 축제날은 끝나고 와서 심기!</p>`;
@@ -542,6 +556,32 @@
     return h;
   }
 
+  // ---------------------------------------------------------------- 성장달력 (계절별로 모든 작물을 한 화면에)
+  function pageGrowCal() {
+    const gs = ui.gcSeason ?? (season() === "겨울" ? "봄" : season());
+    const from = ui.gcFrom ?? "1";
+    const fert = +(ui.gcFert ?? 0);
+    const p = from === "today" && gs === season() ? date.d : 1;
+    const si = SEASONS.indexOf(gs);
+    let h = `<h1>📆 작물 성장 달력</h1>
+      <p class="small muted" style="margin:0 0 6px">${gs} ${p}일에 심고, 한 번 열리는 작물은 거둔 날 바로 다시 심는 기준이에요. 작물을 누르면 날짜를 골라 볼 수 있어요.</p>
+      ${filterRow("gcSeason", SEASONS.slice(0, 3).map((x) => [x, x]), gs)}
+      ${filterRow("gcFrom", [["1", `${gs} 1일에 심기`], ...(gs === season() ? [["today", `오늘(${date.d}일) 심기`]] : [])], gs === season() ? from : "1")}
+      ${filterRow("gcFert", ["비료X", "성장촉진", "디럭스", "하이퍼"].map((l, i) => [i, l]), fert)}`;
+    const list = D.crops.list.filter((c) => c.seasons.includes(gs) && typeof c.grow[fert] === "number");
+    for (const c of list) {
+      const g = c.grow[fert];
+      const span = spanOf(c, si);
+      const hv = harvestDays(c, g, p, span * 28);
+      const inThis = hv.filter((d) => d <= 28).length;
+      h += `<a class="card gc hit" href="#/crops?focus=${encodeURIComponent(c.name)}">
+        <div class="daybar" style="gap:6px">${cropIcon(c.name, 26)}<span class="title">${esc(c.name)}${needMark(c.name)}</span>
+          <span class="right sub">${g}일${regrowOf(c) ? ` · 🔁${regrowOf(c)}일` : ""} · <b>${gs}에 ${inThis}번</b>${span > 1 ? ` <span class="muted">(+다음 계절)</span>` : ""}</span></div>
+        ${drawCal(c, { si, span, p, g, re: regrowOf(c), hv, interactive: false, seasons: 1 })}</a>`;
+    }
+    return h;
+  }
+
   // ---------------------------------------------------------------- 채집
   function pageForage(params) {
     const groups = [...new Set(D.forage.list.map((f) => f.group))];
@@ -714,7 +754,7 @@
   // ---------------------------------------------------------------- 라우터
   const PAGES = [
     ["", "🏠 홈", pageHome], ["calendar", "📅 달력", pageCalendar], ["gifts", "🎁 선물", pageGifts],
-    ["bundles", "📦 번들", pageBundles], ["crops", "🌱 작물", pageCrops], ["fish", "🎣 낚시", pageFish],
+    ["bundles", "📦 번들", pageBundles], ["crops", "🌱 작물", pageCrops], ["growcal", "📆 성장달력", pageGrowCal], ["fish", "🎣 낚시", pageFish],
     ["forage", "🍄 채집", pageForage], ["cooking", "🍳 요리", pageCooking], ["crafting", "🔨 제작", pageCrafting],
     ["buildings", "🏡 건물", pageBuildings], ["ranges", "📐 배치", pageRanges], ["basics", "📖 기초", pageBasics],
   ];
