@@ -18,9 +18,30 @@
     get(k, d) { try { const v = localStorage.getItem("sdv." + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem("sdv." + k, JSON.stringify(v)); } catch (e) { /* 사생활 보호 모드 */ } },
   };
-  let date = store.get("date", { y: 1, s: 0, d: 1 });
-  let weather = store.get("weather", "맑음");
-  const done = new Set(store.get("bundles", []));
+  // 멀티 농장이 둘이라 날짜·날씨·번들 체크는 농장마다 따로 저장한다
+  const FARMS = [
+    { id: "mareapu", name: "MAREAPU 농장", who: "gihoon · cojee" },
+    { id: "mar", name: "마르농장", who: "호스트 cojee" },
+  ];
+  let farm = store.get("farm", "mareapu");
+  if (!FARMS.some((f) => f.id === farm)) farm = "mareapu";
+  const fk = (k) => farm + "." + k;
+  const curFarm = () => FARMS.find((f) => f.id === farm);
+  // 농장을 나누기 전에 저장한 것은 MAREAPU 농장 것으로 옮긴다
+  if (store.get("mareapu.date", null) == null && store.get("date", null) != null) {
+    store.set("mareapu.date", store.get("date"));
+    store.set("mareapu.weather", store.get("weather", "맑음"));
+    store.set("mareapu.bundles", store.get("bundles", []));
+  }
+  let date, weather;
+  const done = new Set();
+  function loadFarm() {
+    date = store.get(fk("date"), { y: 1, s: 0, d: 1 });
+    weather = store.get(fk("weather"), "맑음");
+    done.clear();
+    for (const id of store.get(fk("bundles"), [])) done.add(id);
+  }
+  loadFarm();
   const ui = {}; // 화면별 필터 상태
 
   const season = () => SEASONS[date.s];
@@ -33,7 +54,7 @@
     while (o < 0) { o += 112; y = Math.max(1, y - 1); }
     while (o >= 112) { o -= 112; y += 1; }
     date = { y, s: Math.floor(o / 28), d: (o % 28) + 1 };
-    store.set("date", date);
+    store.set(fk("date"), date);
   }
 
   // ---------------------------------------------------------------- 색인
@@ -114,7 +135,9 @@
     const s = season();
     const today = (D.calendar.days[s] || {})[date.d] || { birthdays: [], events: [] };
     let h = `<div class="card today">
-      <div class="motto">🌾 MAREAPU 농장 번성하라!</div>
+      <div class="filters" style="margin:0 0 2px;padding:0">${FARMS.map((f) =>
+        `<button class="f${f.id === farm ? " on" : ""}" data-farm="${f.id}">${esc(f.name)}</button>`).join("")}</div>
+      <div class="motto">🌾 ${esc(curFarm().name)} 번성하라!</div>
       <div class="daybar"><div class="big">${esc(dateText())}</div></div>
       <div class="daybar">
         <button class="btn" data-act="prev">◀ 어제</button>
@@ -229,7 +252,7 @@
     let h = `<h1>📦 마을회관 번들</h1>${notesBlock(D.bundles.notes, D.bundles.video)}
       <div class="card"><b>전체 진행</b> <span class="sub">${got} / ${total}</span>
       <div class="progress"><i style="width:${(got / total * 100).toFixed(1)}%"></i></div>
-      <span class="small muted">체크는 이 폰에만 저장돼요. 둘이 각자 폰에서 체크하면 따로 저장돼요.</span></div>
+      <span class="small muted">🌾 ${esc(curFarm().name)} 체크리스트 · 이 폰에만 저장돼요. 농장은 홈에서 바꿔요.</span></div>
       ${filterRow("bundleView", [["all", "전체"], ["season", `${s}에만 구할 수 있는 것`], ["left", "안 모은 것만"]], view)}`;
     for (const room of D.bundles.rooms) {
       let rh = "";
@@ -430,7 +453,7 @@
       <div class="card"><ul class="plain">${D.basics.tips.filter((t) => !t.includes("뉴비 집중") && !PC_ONLY.test(t)).map((t) => `<li style="margin:6px 0">${esc(t)}</li>`).join("")}</ul></div>
       <p class="small muted">PC·모드 관련 팁은 스위치에선 해당이 없어서 뺐어요. 원작자: <a href="${esc(D.author.url)}" target="_blank" rel="noopener">유튜브 에글이</a> · <a href="${esc(D.source)}" target="_blank" rel="noopener">원본 구글 시트</a></p>
       <h2>이 폰에 저장된 것</h2>
-      <div class="card small">게임 날짜·번들 체크는 이 브라우저에만 저장돼요.<br><button class="btn" data-act="reset" style="margin-top:8px">번들 체크 전부 지우기</button></div>`;
+      <div class="card small">게임 날짜·번들 체크는 농장마다 따로, 이 브라우저에만 저장돼요.<br><button class="btn" data-act="reset" style="margin-top:8px">${esc(curFarm().name)} 번들 체크 지우기</button></div>`;
   }
 
   // ---------------------------------------------------------------- 통합 검색
@@ -520,10 +543,20 @@
   });
 
   app.addEventListener("click", (e) => {
+    const fb = e.target.closest("[data-farm]");
+    if (fb) {
+      farm = fb.dataset.farm;
+      store.set("farm", farm);
+      loadFarm();
+      searchIndex = null;
+      showFarm();
+      render(true);
+      return;
+    }
     const f = e.target.closest("[data-f]");
     if (f) {
       const key = f.dataset.f, v = f.dataset.v;
-      if (key === "weather") { weather = v; store.set("weather", v); }
+      if (key === "weather") { weather = v; store.set(fk("weather"), v); }
       else ui[key] = v;
       if (key === "calSeason") delete ui.calDay;
       render(true);
@@ -537,7 +570,7 @@
       if (a === "next") shiftDate(1);
       if (a === "prev") shiftDate(-1);
       if (a === "pick") return openDate();
-      if (a === "reset" && confirm("번들 체크를 전부 지울까요?")) { done.clear(); store.set("bundles", []); searchIndex = null; }
+      if (a === "reset" && confirm(`${curFarm().name}의 번들 체크를 전부 지울까요?`)) { done.clear(); store.set(fk("bundles"), []); searchIndex = null; }
       render(true);
     }
   });
@@ -546,7 +579,7 @@
     if (!c) return;
     const id = c.dataset.check;
     if (c.checked) done.add(id); else done.delete(id);
-    store.set("bundles", [...done]);
+    store.set(fk("bundles"), [...done]);
     searchIndex = null;
     render(true);
   });
@@ -597,11 +630,18 @@
     if (b.dataset.s) draft.s = +b.dataset.s;
     if (b.dataset.d) draft.d = +b.dataset.d;
     if (b.dataset.x === "cancel") return dlg.close();
-    if (b.dataset.x === "ok") { date = draft; store.set("date", date); dlg.close(); lastId = null; render(); return; }
+    if (b.dataset.x === "ok") { date = draft; store.set(fk("date"), date); dlg.close(); lastId = null; render(); return; }
     drawDate();
   });
   $("#datePill").addEventListener("click", openDate);
 
+  function showFarm() {
+    const f = curFarm();
+    $("#brandName").textContent = f.name;
+    $("#brandWho").textContent = f.who;
+    document.title = f.name + " 번성하라";
+  }
+  showFarm();
   $("#srcLink").href = D.source;
   $("#authorLink").href = D.author.url;
   render();
