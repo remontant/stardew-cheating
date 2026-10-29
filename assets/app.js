@@ -194,6 +194,33 @@
   const PT = window.SDV_PORTRAITS || {};
   const face = (name, h) => (PT[name] ? `<img class="face" src="${esc(PT[name])}" alt="${esc(name)}" style="width:${h}px;height:${h}px" loading="lazy">` : "");
 
+  // 선물 취향 단계 (위키). 호감도 점수는 게임 기준이고, 생일엔 8배가 된다.
+  const GF = window.SDV_GIFTS || {};
+  const LV = [
+    ["love", "💖", "사랑함", "+80"],
+    ["like", "💛", "좋아함", "+45"],
+    ["dislike", "👎", "싫어함", "−20"],
+    ["hate", "💢", "혐오함", "−40"],
+  ];
+  function levelChips(v, lv, mark) {
+    const g = (GF[v.name] || {})[lv] || { items: [], notes: [] };
+    let items = g.items.map((i) => ({ name: i.name, img: i.img, rec: false }));
+    if (lv === "love") {
+      // 시트의 사랑 목록(빨간 = 구하기 쉬움)을 앞에 두고, 위키에만 있는 것을 뒤에 붙인다
+      const seen = new Set(v.gifts.map((x) => norm(x.name)));
+      items = [...v.gifts.map((x) => ({ name: x.name, memo: x.memo, rec: x.rec })), ...items.filter((i) => !seen.has(norm(i.name)))];
+    }
+    if (!items.length && !g.notes.length) return "";
+    return `<div class="lvrow lv-${lv}">${items.map((i) =>
+      `<span class="chip${i.rec ? " rec" : ""}"><span class="lvm">${mark}</span>${i.img ? `<img class="px ii" src="${esc(i.img)}" alt="" style="height:20px" loading="lazy">` : ii(i.name)}${esc(i.name)}${i.memo ? ` <span class="muted small">${esc(i.memo)}</span>` : ""}</span>`).join("")}
+      ${g.notes.length ? `<span class="small muted lvnote">${mark} ${g.notes.map(esc).join(" · ")}</span>` : ""}</div>`;
+  }
+  function giftLevels(v) {
+    const [love, like, dis, hate] = LV.map(([lv, mark]) => levelChips(v, lv, mark));
+    const bad = dis + hate;
+    return `${love}${like}${bad ? `<details class="bad"><summary class="small">👎 주면 안 되는 것</summary>${hate}${dis}</details>` : ""}`;
+  }
+
   function villagerCard(v, open) {
     const b = v.birthday;
     const left = b ? daysUntil(b) : null;
@@ -207,7 +234,7 @@
           ${v.marry ? `<span class="sub">💍 결혼 가능</span>` : ""}
           <span class="right">${when}</span>
         </div>
-        ${open !== false ? `<div style="margin-top:6px">${giftChips(v)}</div>` : ""}
+        ${open !== false ? `<div style="margin-top:6px">${giftLevels(v)}</div>` : ""}
       </div>
     </div>`;
   }
@@ -396,7 +423,7 @@
     if (!today.birthdays.length && !today.events.length) h += `<div class="card muted">오늘은 생일도 축제도 없어요.</div>`;
     for (const name of today.birthdays) {
       const v = vByName.get(name);
-      h += `<div class="card"><div class="event"><span class="ico">${face(name, 56) || "🎂"}</span><div><b>${esc(name)}</b> 생일이에요 — 선물 호감도 5배!
+      h += `<div class="card"><div class="event"><span class="ico">${face(name, 56) || "🎂"}</span><div><b>${esc(name)}</b> 생일이에요 — 선물 효과 8배!
         ${v ? `<div style="margin-top:6px">${giftChips(v)}</div>` : ""}</div></div></div>`;
     }
     for (const e of today.events) h += `<div class="card"><div class="event"><span class="ico">🎉</span><div><b>${esc(e)}</b></div></div></div>`;
@@ -482,6 +509,7 @@
     if (sort === "soon") list = [...list].sort((a, b) => daysUntil(a.birthday) - daysUntil(b.birthday));
     else if (sort === "name") list = [...list].sort((a, b) => a.name.localeCompare(b.name, "ko"));
     return `<h1>🎁 사랑하는 선물</h1>${notesBlock(D.villagers.notes.map((n) => n.replace("빨간색으로 표시", "빨간 칩으로 표시")), D.villagers.video)}
+      <div class="card small">${LV.map(([, mark, label, pt]) => `${mark} ${label} <b>${pt}</b>`).join(" · ")}<br><span class="muted">호감도 점수 · 생일엔 8배 · 빨간 칩은 구하기 쉬운 추천 선물</span></div>
       ${filterRow("giftFilter", [["all", "전체"], ["marry", "💍 결혼 가능"], ["no", "그 외 주민"]], f)}
       ${filterRow("giftSort", [["soon", "생일 가까운 순"], ["name", "이름순"], ["sheet", "시트 순서"]], sort)}
       ${list.map((v) => villagerCard(v)).join("")}`;
@@ -783,7 +811,23 @@
     for (const r of D.cooking.list) add("요리", r.name, r.ings.map((i) => i.name).join(", "), `#/cooking?focus=${encodeURIComponent(r.name)}`, r.ings.map((i) => i.name).join(" "));
     for (const s of D.crafting.sections) for (const i of s.items) add("제작", i.name, i.mats, `#/crafting?focus=${encodeURIComponent(i.name)}`, i.mats);
     for (const v of villagers) add("주민", v.name, v.birthday ? `${v.birthday.season} ${v.birthday.day}일 생일` : "", `#/gifts?focus=${encodeURIComponent(v.name)}`);
-    for (const [k, arr] of lovedBy) add("선물", arr[0].v.gifts.find((g) => norm(g.name) === k).name, "좋아하는 주민: " + arr.map((x) => x.v.name).join(", "), `#/gifts?focus=${encodeURIComponent(arr[0].v.name)}`);
+    // 아이템 하나를 누가 얼마나 좋아하는지 (시트 사랑 목록 + 위키 단계)
+    const byItem = new Map();
+    const put = (name, v, lv) => {
+      const k = norm(name);
+      if (!byItem.has(k)) byItem.set(k, { name, who: {} });
+      const w = byItem.get(k).who;
+      if (!w[v.name]) w[v.name] = lv;
+    };
+    for (const v of villagers) {
+      for (const g of v.gifts) put(g.name, v, "love");
+      for (const [lv] of LV) for (const i of ((GF[v.name] || {})[lv] || { items: [] }).items) put(i.name, v, lv);
+    }
+    for (const { name, who } of byItem.values()) {
+      const sub = LV.map(([lv, mark]) => { const ns = Object.keys(who).filter((n) => who[n] === lv); return ns.length ? `${mark} ${ns.join(", ")}` : ""; }).filter(Boolean).join("  ");
+      const first = Object.keys(who)[0];
+      add("선물", name, sub, `#/gifts?focus=${encodeURIComponent(first)}`);
+    }
     for (const it of bundleItems) add("번들", it.label, it.bundle.name + (done.has(it.id) ? " · ✅ 모음" : ""), `#/bundles?focus=${encodeURIComponent(it.bundle.name)}`);
     for (const b of [...D.buildings.robin, ...D.buildings.wizard]) add("건물", b.name + (b.tier ? " " + b.tier : ""), b.cost.join(", "), `#/buildings?focus=${encodeURIComponent(b.name)}`);
     return idx;

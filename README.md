@@ -66,3 +66,6 @@ match /stardew/{farm} {
 `python tools/fetch_items.py` 는 시트에 나오는 아이템 이름(선물·번들·물고기·채집·요리·제작품)마다
 [한국어 위키](https://ko.stardewvalleywiki.com)에서 같은 이름 문서를 찾아 그림 파일을 알아내고, 영어 위키에서 그 그림을 받아
 `assets/items/` 와 `data/items.js` 를 만든다. 띄어쓰기가 달라도(매운고추 / 매운 고추) 맞춘다.
+
+`python tools/fetch_gifts.py` 는 한국어 위키 주민 문서의 「선물」 절에서 사랑함·좋아함·싫어함·혐오함 목록을 받아
+`data/gifts.js` 를 만든다. 선물 화면은 시트의 사랑 목록(빨간 = 추천)을 앞에 두고 위키 목록을 덧붙인다.

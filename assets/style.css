@@ -298,3 +298,11 @@ img.ii { margin-right: 2px; flex: none; }
 .reco h3 { margin: 12px 0 6px; }
 ol.rank { margin: 0; padding-left: 22px; }
 ol.rank li { margin: 4px 0; }
+
+/* 선물 단계: 칩 앞의 작은 표시로 사랑·좋아함·싫어함을 가른다 */
+.lvrow { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+.lvm { font-size: 11px; margin-right: 1px; }
+.lv-like .chip { background: #fff3c4; }
+.lv-dislike .chip, .lv-hate .chip { background: #ece3d3; color: var(--muted); }
+.lvnote { width: 100%; }
+details.bad > summary { cursor: pointer; color: var(--muted); font-weight: 700; margin: 2px 0 6px; }
