@@ -966,9 +966,22 @@
         <div class="body"><ul class="plain">${g.items.map((t) => `<li style="margin:5px 0">${esc(t)}</li>`).join("")}</ul></div></details>`).join("")}`;
   }
   const PC_ONLY = /PC버전|모드나 리텍/;
+  // 기초 팁마다 내용에 맞는 그림 (주민 얼굴·도구·건물). 앞에서부터 맞는 규칙을 쓴다.
+  const TIP_ART = [
+    [/1년은 4달/, () => ii("달력", 40)],
+    [/배송상자/, () => { const b = (window.SDV_BUILDINGS || {})["배송상자|"]; return b ? `<img class="px" src="${esc(b)}" alt="" style="height:40px">` : ""; }],
+    [/클린트/, () => face("클린트", 40) + ii("호미", 32) + ii("물뿌리개", 32)],
+    [/로빈/, () => { const b = (window.SDV_BUILDINGS || {})["닭장|일반"]; return face("로빈", 40) + (b ? `<img class="px" src="${esc(b)}" alt="" style="height:40px">` : ""); }],
+    [/낚시대|윌리/, () => face("윌리", 40) + ii("유리섬유낚싯대", 32)],
+    [/가방/, () => face("피에르", 40) + ii("가방", 32)],
+    [/황금호두/, () => ii("황금호두", 40)],
+    [/고인물/, () => "🌱"],
+  ];
+  const tipArt = (t) => { const r = TIP_ART.find(([re]) => re.test(t)); return r ? r[1]() : ""; };
+
   function pageBasics() {
     return `<h1>📖 뉴비 기초</h1>
-      <div class="card"><ul class="plain">${D.basics.tips.filter((t) => !t.includes("뉴비 집중") && !PC_ONLY.test(t)).map((t) => `<li style="margin:6px 0">${esc(t)}${t.includes("황금호두") ? `<br><a href="${esc(D.author.url)}/search?query=${encodeURIComponent("황금호두")}" target="_blank" rel="noopener">▶ 에글이 채널에서 황금호두 영상 찾기</a>` : ""}</li>`).join("")}</ul></div>
+      ${D.basics.tips.filter((t) => !t.includes("뉴비 집중") && !PC_ONLY.test(t)).map((t) => `<div class="card tip"><span class="tipart">${tipArt(t)}</span><div style="min-width:0">${esc(t.replace(/^\*+\s*/, ""))}${t.includes("황금호두") ? `<br><a href="${esc(D.author.url)}/search?query=${encodeURIComponent("황금호두")}" target="_blank" rel="noopener">▶ 에글이 채널에서 황금호두 영상 찾기</a>` : ""}</div></div>`).join("")}
       <p class="small muted">PC·모드 관련 팁은 스위치에선 해당이 없어서 뺐어요. 원작자: <a href="${esc(D.author.url)}" target="_blank" rel="noopener">유튜브 에글이</a> · <a href="${esc(D.source)}" target="_blank" rel="noopener">원본 구글 시트</a></p>
       ${tipsBlock()}
       <h2>이 폰에 저장된 것</h2>
@@ -1154,6 +1167,36 @@
     tmr = setTimeout(() => (v ? (renderSearch(v), window.scrollTo(0, 0)) : render()), 150);
   });
   $("#searchForm").addEventListener("submit", (e) => { e.preventDefault(); $("#q").blur(); });
+
+  // 🎤 음성 검색: 브라우저에 들어 있는 음성 인식(Web Speech API)을 쓴다. 없는 브라우저면 버튼을 안 띄운다.
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SR) {
+    const mic = document.createElement("button");
+    mic.type = "button";
+    mic.className = "mic";
+    mic.setAttribute("aria-label", "말로 검색");
+    mic.textContent = "🎤";
+    $("#searchForm").appendChild(mic);
+    let rec = null;
+    mic.addEventListener("click", () => {
+      if (rec) { rec.stop(); return; }
+      rec = new SR();
+      rec.lang = "ko-KR";
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+      mic.classList.add("on");
+      $("#q").placeholder = "듣고 있어요… 말해 주세요";
+      rec.onresult = (ev) => {
+        const text = [...ev.results].map((r) => r[0].transcript).join("").replace(/[.?!。]$/, "").trim();
+        $("#q").value = text;
+        if (text) { renderSearch(text); window.scrollTo(0, 0); }
+      };
+      const end = () => { mic.classList.remove("on"); $("#q").placeholder = "뭐든 검색 (호박, 장어, 헤일리…)"; rec = null; };
+      rec.onend = end;
+      rec.onerror = (ev) => { if (ev.error === "not-allowed") alert("마이크 권한을 허용해야 말로 검색할 수 있어요."); end(); };
+      try { rec.start(); } catch (err) { end(); }
+    });
+  }
 
   // ---------------------------------------------------------------- 날짜 고르기
   const dlg = $("#dateDlg");

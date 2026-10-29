@@ -370,3 +370,16 @@ img.cthumb { display: block; width: 100%; height: 18px; object-fit: cover; borde
 @media (min-width: 700px) {
   .tabs { flex-wrap: wrap; overflow: visible; }
 }
+
+/* 기초 팁 카드 */
+.card.tip { display: flex; gap: 12px; align-items: center; }
+.tipart { flex: none; min-width: 48px; display: flex; gap: 2px; align-items: flex-end; justify-content: center; font-size: 30px; }
+.tipart img.face { border: 2px solid var(--wood); }
+
+/* 🎤 음성 검색 버튼 (검색창 안 오른쪽) */
+.search { position: relative; }
+.search .mic { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; font-size: 20px; padding: 6px 8px; cursor: pointer; border-radius: 6px; }
+.search .mic.on { background: var(--rec-bg); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { transform: translateY(-50%) scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .search .mic.on { animation: none; } }
+#searchForm input { padding-right: 44px; }

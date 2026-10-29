@@ -132,6 +132,13 @@ def main():
     still = sorted(n for n in names if n not in eng)
     print("검색으로 더 찾음 → 남은 것", len(still), still, file=sys.stderr)
 
+    # 시트 아이템은 아니지만 기초 탭 팁 그림에 쓰는 것
+    EXTRA = {"호미": "Hoe.png", "물뿌리개": "Watering Can.png", "대나무낚싯대": "Bamboo Pole.png",
+             "유리섬유낚싯대": "Fiberglass Rod.png", "가방": "Backpack.png", "황금호두": "Golden Walnut.png",
+             "달력": "Calendar.png", "곡괭이": "Pickaxe.png", "도끼": "Axe.png"}
+    for k, f in EXTRA.items():
+        eng.setdefault(k, f)
+        names.setdefault(k, {k})
     urls = image_urls(set(eng.values()))
     outdir = ROOT / "assets" / "items"
     outdir.mkdir(parents=True, exist_ok=True)
