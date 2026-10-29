@@ -598,6 +598,7 @@
       <tbody>${row("기본", g.slice(0, 4))}${row("농업전문가", g.slice(4, 8))}</tbody></table>`;
     if (sl.some((x) => typeof x === "number")) h += `<h3>판매가</h3><table class="t"><thead><tr><th></th><th>일반</th><th>은별</th><th>금별</th><th>이리듐</th></tr></thead>
       <tbody>${row("기본", [sl[0], sl[2], sl[4], sl[6]])}${row("경작인", [sl[1], sl[3], sl[5], sl[7]])}</tbody></table>`;
+    h += `<p class="small muted" style="margin:0 0 6px">💡 <b>경작인</b>: 농사 5레벨에 고르는 직업, 작물 판매가 +10% · <b>농업전문가</b>: 경작인을 고른 뒤 농사 10레벨에 고르는 직업, 작물이 10% 빨리 자람 · <b>장인</b>: 같은 10레벨의 다른 선택지, 가공품(와인·젤리 등) +40%</p>`;
     const pr = c.proc.filter((p) => p.base != null);
     if (pr.length) h += `<h3>가공하면</h3><table class="t"><thead><tr><th></th><th>기본</th><th>장인</th></tr></thead><tbody>${pr.map((p) =>
       `<tr><td>${esc((p.label || "").replace(/\n/g, " "))}</td><td>${p.base ?? "-"}</td><td>${p.artisan ?? "-"}</td></tr>`).join("")}</tbody></table>`;
@@ -828,9 +829,10 @@
   function cookList(list) {
     if (!list.length) return `<div class="empty">없어요.</div>`;
     return list.map((r) => `<div class="card" id="x-${esc(norm(r.name))}">
-      <div class="daybar">${ii(r.name, 32)}<span class="title">${esc(r.name)}</span>
-        ${buffOf(r) && buffOf(r).energy != null ? `<span class="right sub">⚡${buffOf(r).energy} ❤️${buffOf(r).health}</span>` : ""}</div>
-      ${buffOf(r) && buffOf(r).buffs.length ? `<div class="chips buffs">${buffOf(r).buffs.map((b) => `<span class="chip buff">${STAT_ICON[b.stat] || "✨"} ${esc(b.stat)} <b>${b.val > 0 ? "+" : ""}${b.val}</b></span>`).join("")}${buffOf(r).dur ? `<span class="sub">⏱ ${esc(buffOf(r).dur)}</span>` : ""}</div>` : ""}
+      <div class="fishhead"><span class="bigslot">${ii(r.name, 44)}</span>
+        <div style="min-width:0;flex:1"><div class="daybar"><span class="title">${esc(r.name)}</span>
+          ${buffOf(r) && buffOf(r).energy != null ? `<span class="right sub">⚡${buffOf(r).energy} ❤️${buffOf(r).health}</span>` : ""}</div>
+        ${buffOf(r) && buffOf(r).buffs.length ? `<div class="chips buffs">${buffOf(r).buffs.map((b) => `<span class="chip buff">${STAT_ICON[b.stat] || "✨"} ${esc(b.stat)} <b>${b.val > 0 ? "+" : ""}${b.val}</b></span>`).join("")}${buffOf(r).dur ? `<span class="sub">⏱ ${esc(buffOf(r).dur)}</span>` : ""}</div>` : ""}</div></div>
       <div class="chips" style="margin:6px 0">${r.ings.map((i) => `<span class="chip">${ii(i.name)}${esc(i.name)}${i.n ? ` ×${i.n}` : ""}</span>`).join("")}</div>
       <dl class="kv"><dt>레시피</dt><dd>${r.how.map(esc).join(" ")}</dd>
       ${r.note.length ? `<dt>참고</dt><dd>${r.note.map(esc).join(" ")}</dd>` : ""}</dl></div>`).join("");
