@@ -59,6 +59,6 @@ match /stardew/{farm} {
 
 ## 작물 성장 단계 그림
 
-`python tools/fetch_stages.py` 가 [스타듀밸리 위키](https://stardewvalleywiki.com)에서 작물별 성장 단계 도트와
-단계별 날수를 받아 `assets/crops/` 와 `data/stages.js` 를 만든다(찻잎은 위키에 단계 표가 없어 빠짐).
+`python tools/fetch_stages.py` · `python tools/fetch_portraits.py` 가 [스타듀밸리 위키](https://stardewvalleywiki.com)에서 작물별 성장 단계 도트와
+단계별 날수, 주민 초상화를 받아 `assets/crops/` · `assets/people/` 와 `data/stages.js` · `data/portraits.js` 를 만든다(찻잎은 위키에 단계 표가 없어 빠짐).
 게임 그림 © ConcernedApe.

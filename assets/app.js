@@ -182,18 +182,24 @@
   const link = (page, focus, label, cls = "chip") => `<a class="${cls}" href="#/${page}?focus=${encodeURIComponent(focus)}">${label}</a>`;
   const daysUntil = (b) => (ordOf(SEASONS.indexOf(b.season), b.day) - ordOf(date.s, date.d) + 112) % 112;
 
+  const PT = window.SDV_PORTRAITS || {};
+  const face = (name, h) => (PT[name] ? `<img class="face" src="${esc(PT[name])}" alt="${esc(name)}" style="width:${h}px;height:${h}px" loading="lazy">` : "");
+
   function villagerCard(v, open) {
     const b = v.birthday;
     const left = b ? daysUntil(b) : null;
     const when = left === 0 ? `<span class="badge warn">오늘 생일!</span>` : left != null && left <= 7 ? `<span class="badge">${left}일 후</span>` : "";
-    return `<div class="card" id="x-${esc(norm(v.name))}">
-      <div class="daybar" style="gap:8px;flex-wrap:wrap">
-        <span class="title">${esc(v.name)}</span>
-        ${b ? `${tag(b.season)} <span class="sub">${b.day}일 생일</span>` : ""}
-        ${v.marry ? `<span class="sub">💍 결혼 가능</span>` : ""}
-        <span class="right">${when}</span>
+    return `<div class="card person" id="x-${esc(norm(v.name))}">
+      ${face(v.name, 64)}
+      <div style="min-width:0;flex:1">
+        <div class="daybar" style="gap:8px;flex-wrap:wrap">
+          <span class="title">${esc(v.name)}</span>
+          ${b ? `${tag(b.season)} <span class="sub">${b.day}일 생일</span>` : ""}
+          ${v.marry ? `<span class="sub">💍 결혼 가능</span>` : ""}
+          <span class="right">${when}</span>
+        </div>
+        ${open !== false ? `<div style="margin-top:6px">${giftChips(v)}</div>` : ""}
       </div>
-      ${open !== false ? `<div style="margin-top:6px">${giftChips(v)}</div>` : ""}
     </div>`;
   }
 
@@ -367,7 +373,7 @@
     if (!today.birthdays.length && !today.events.length) h += `<div class="card muted">오늘은 생일도 축제도 없어요.</div>`;
     for (const name of today.birthdays) {
       const v = vByName.get(name);
-      h += `<div class="card"><div class="event"><span class="ico">🎂</span><div><b>${esc(name)}</b> 생일이에요 — 선물 호감도 5배!
+      h += `<div class="card"><div class="event"><span class="ico">${face(name, 56) || "🎂"}</span><div><b>${esc(name)}</b> 생일이에요 — 선물 호감도 5배!
         ${v ? `<div style="margin-top:6px">${giftChips(v)}</div>` : ""}</div></div></div>`;
     }
     for (const e of today.events) h += `<div class="card"><div class="event"><span class="ico">🎉</span><div><b>${esc(e)}</b></div></div></div>`;
@@ -378,7 +384,7 @@
       const ss = Math.floor((o % 112) / 28), dd = (o % 28) + 1;
       const day = (D.calendar.days[SEASONS[ss]] || {})[dd];
       if (!day) continue;
-      const bits = [...day.birthdays.map((n) => `🎂 ${link("gifts", n, esc(n), "")}`), ...day.events.map((e) => `🎉 ${esc(e)}`)];
+      const bits = [...day.birthdays.map((n) => `${face(n, 22) || "🎂"} ${link("gifts", n, esc(n), "")}`), ...day.events.map((e) => `🎉 ${esc(e)}`)];
       if (bits.length) up.push(`<li><b>${SEASONS[ss]} ${dd}일 (${dow(dd)})</b> <span class="muted">${i === 1 ? "내일" : i + "일 후"}</span> · ${bits.join(" · ")}</li>`);
     }
     if (up.length) h += `<h3>다가오는 7일</h3><div class="card"><ul class="plain upcoming">${up.join("")}</ul></div>`;
@@ -434,7 +440,7 @@
     for (let d = 1; d <= 28; d++) {
       const day = days[d] || { birthdays: [], events: [] };
       const cls = [cs === season() && d === date.d ? "today" : "", d === sel ? "sel" : ""].join(" ");
-      h += `<button class="${cls}" data-day="${d}"><span class="n">${d}</span>${day.birthdays.map((b) => `<span class="b">🎂${esc(b)}</span>`).join("")}${day.events.map((e) => `<span class="e">${esc(e)}</span>`).join("")}</button>`;
+      h += `<button class="${cls}" data-day="${d}"><span class="n">${d}</span>${day.birthdays.map((b) => `<span class="b">${face(b, 22) || "🎂"}${esc(b)}</span>`).join("")}${day.events.map((e) => `<span class="e">${esc(e)}</span>`).join("")}</button>`;
     }
     h += `</div></div>`;
     const day = days[sel] || { birthdays: [], events: [] };
