@@ -62,3 +62,7 @@ match /stardew/{farm} {
 `python tools/fetch_stages.py` · `python tools/fetch_portraits.py` 가 [스타듀밸리 위키](https://stardewvalleywiki.com)에서 작물별 성장 단계 도트와
 단계별 날수, 주민 초상화를 받아 `assets/crops/` · `assets/people/` 와 `data/stages.js` · `data/portraits.js` 를 만든다(찻잎은 위키에 단계 표가 없어 빠짐).
 게임 그림 © ConcernedApe.
+
+`python tools/fetch_items.py` 는 시트에 나오는 아이템 이름(선물·번들·물고기·채집·요리·제작품)마다
+[한국어 위키](https://ko.stardewvalleywiki.com)에서 같은 이름 문서를 찾아 그림 파일을 알아내고, 영어 위키에서 그 그림을 받아
+`assets/items/` 와 `data/items.js` 를 만든다. 띄어쓰기가 달라도(매운고추 / 매운 고추) 맞춘다.

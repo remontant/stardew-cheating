@@ -177,8 +177,17 @@
   const filterRow = (key, options, cur) =>
     `<div class="filters">${options.map(([v, label]) =>
       `<button class="f${String(cur) === String(v) ? " on" : ""}" data-f="${esc(key)}" data-v="${esc(v)}">${esc(label ?? v)}</button>`).join("")}</div>`;
+  // 아이템 아이콘 (tools/fetch_items.py). 「나무 300개」「미끼 * 5」처럼 꼬리가 붙어 있어도 찾는다.
+  const IT = window.SDV_ITEMS || {};
+  function itemSrc(name) {
+    const n = String(name || "");
+    const bare = n.replace(/\s*\(.*?\)$/, "").replace(/\s*[*×]\s*\d+$/, "").replace(/\s*(금별\s*)?[\d,]+개$/, "").replace(/\s*\(\d+\)$/, "");
+    return IT[norm(n)] || IT[norm(bare)] || (window.SDV_STAGES && SDV_STAGES[n] && SDV_STAGES[n].icon) || null;
+  }
+  const ii = (name, h = 20) => { const src = itemSrc(name); return src ? `<img class="px ii" src="${esc(src)}" alt="" style="height:${h}px" loading="lazy">` : ""; };
+
   const giftChips = (v) => `<div class="chips">${v.gifts.map((g) =>
-    `<span class="chip${g.rec ? " rec" : ""}">${esc(g.name)}${g.memo ? ` <span class="muted small">${esc(g.memo)}</span>` : ""}</span>`).join("")}</div>`;
+    `<span class="chip${g.rec ? " rec" : ""}">${ii(g.name)}${esc(g.name)}${g.memo ? ` <span class="muted small">${esc(g.memo)}</span>` : ""}</span>`).join("")}</div>`;
   const link = (page, focus, label, cls = "chip") => `<a class="${cls}" href="#/${page}?focus=${encodeURIComponent(focus)}">${label}</a>`;
   const daysUntil = (b) => (ordOf(SEASONS.indexOf(b.season), b.day) - ordOf(date.s, date.d) + 112) % 112;
 
@@ -407,7 +416,7 @@
     const need = bundleItems.filter((it) => onlyNow(it) && !done.has(it.id));
     const seen = new Set();
     const needChips = need.filter((it) => !seen.has(it.label) && seen.add(it.label))
-      .map((it) => link("bundles", it.bundle.name, `${esc(it.label)}`, "chip need")).join("");
+      .map((it) => link("bundles", it.bundle.name, `${ii(it.label)}${esc(it.label)}`, "chip need")).join("");
     h += `<h2>📦 이번 계절에만 구할 수 있는 번들 재료</h2>`;
     h += need.length ? `<div class="card"><div class="chips">${needChips}</div><p class="small muted" style="margin:8px 0 0">번들 화면에서 체크하면 여기서 빠져요.</p></div>`
       : `<div class="card muted">이번 계절 번들 재료는 다 모았어요 👏</div>`;
@@ -431,14 +440,14 @@
       const list = fish.filter((f) => f.area === area);
       if (!list.length) continue;
       h += `<h3 style="margin-top:4px">${area}</h3><div class="chips">${list.map((f) =>
-        link("fish", f.area + f.name, `${esc(f.name)}${needMark(f.name)}`, "chip" + (stillNeeded(f.name).length ? " need" : ""))).join("")}</div>`;
+        link("fish", f.area + f.name, `${ii(f.name)}${esc(f.name)}${needMark(f.name)}`, "chip" + (stillNeeded(f.name).length ? " need" : ""))).join("")}</div>`;
     }
     h += `<p class="small muted" style="margin:8px 0 0">테두리·📦 = 번들에 아직 내야 해요. 잡으면 하나는 남겨두기! (번들 탭에서 체크하면 빠져요)</p></div>`;
 
     // 채집
     const fo = D.forage.list.filter((f) => f.group === s);
     if (fo.length) h += `<h2>🍄 ${s} 채집물</h2><div class="card"><div class="chips">${fo.map((f) =>
-      link("forage", f.name, `${esc(f.name)}${needMark(f.name)}`, "chip" + (stillNeeded(f.name).length ? " need" : ""))).join("")}</div>
+      link("forage", f.name, `${ii(f.name)}${esc(f.name)}${needMark(f.name)}`, "chip" + (stillNeeded(f.name).length ? " need" : ""))).join("")}</div>
       <p class="small muted" style="margin:8px 0 0">테두리·📦 = 번들에 아직 내야 해요.</p></div>`;
     return h;
   }
@@ -509,7 +518,7 @@
             const id = b.name + "|" + it.label;
             const where = [...it.seasons.map(tag), it.cat && `<span class="sub">${esc(it.cat.replace("(?)", ""))}</span>`, it.where.length && `<span class="sub">· ${esc(it.where.join(" / "))}</span>`].filter(Boolean).join(" ");
             return `<label class="check${done.has(id) ? " done" : ""}"><input type="checkbox" data-check="${esc(id)}"${done.has(id) ? " checked" : ""}>
-              <div><div class="nm">${esc(it.label)}${it.times > 1 ? ` ×${it.times}` : ""}</div><div>${where}</div></div></label>`;
+              ${ii(it.label, 32) || `<span class="ii-empty"></span>`}<div><div class="nm">${esc(it.label)}${it.times > 1 ? ` ×${it.times}` : ""}</div><div>${where}</div></div></label>`;
           }).join("")}</div></details>`;
       }
       if (rh) h += `<h2>${esc(room.room)}</h2>${room.note ? `<p class="small muted">${esc(room.note)}</p>` : ""}${rh}`;
@@ -591,7 +600,7 @@
       <details class="card" id="map"><summary><span class="title">🗺️ 펠리컨 마을 지도</span></summary><div class="body"><img class="shot" src="assets/map.webp" alt="스타듀밸리 지도: 비밀의 숲, 잉거불 수액 숲, 버스정류장, 펠리컨 마을, 산, 해변 위치" loading="lazy"></div></details>
       ${filterRow("forageGroup", ["전체", ...groups].map((x) => [x, x]), g)}`;
     for (const f of list) {
-      h += `<div class="card" id="x-${esc(norm(f.name))}"><div class="daybar" style="flex-wrap:wrap"><span class="title">${esc(f.name)}${needMark(f.name)}</span>${tag(f.group)}</div>
+      h += `<div class="card" id="x-${esc(norm(f.name))}"><div class="daybar" style="flex-wrap:wrap">${ii(f.name, 32)}<span class="title">${esc(f.name)}${needMark(f.name)}</span>${tag(f.group)}</div>
         <div class="sub">📍 ${br(f.where)}</div>
         ${f.notes.length ? `<ul class="plain small">${f.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</div>`;
     }
@@ -614,7 +623,7 @@
     for (const f of list) {
       const all = f.seasons.length === 4;
       h += `<div class="card" id="x-${esc(norm(f.area + f.name))}">
-        <div class="daybar" style="flex-wrap:wrap"><span class="title">${esc(f.name)}${needMark(f.name)}</span>
+        <div class="daybar" style="flex-wrap:wrap">${ii(f.name, 32)}<span class="title">${esc(f.name)}${needMark(f.name)}</span>
           <span class="sub">${esc(f.area)}${f.sub ? " · " + esc(f.sub) : ""}</span>
           <span class="right">${all ? `<span class="sub">모든 계절</span>` : f.seasons.map(tag).join(" ")}</span></div>
         <dl class="kv">
@@ -644,8 +653,8 @@
   function cookList(list) {
     if (!list.length) return `<div class="empty">없어요.</div>`;
     return list.map((r) => `<div class="card" id="x-${esc(norm(r.name))}">
-      <div class="title">${esc(r.name)}</div>
-      <div class="chips" style="margin:6px 0">${r.ings.map((i) => `<span class="chip">${esc(i.name)}${i.n ? ` ×${i.n}` : ""}</span>`).join("")}</div>
+      <div class="daybar">${ii(r.name, 32)}<span class="title">${esc(r.name)}</span></div>
+      <div class="chips" style="margin:6px 0">${r.ings.map((i) => `<span class="chip">${ii(i.name)}${esc(i.name)}${i.n ? ` ×${i.n}` : ""}</span>`).join("")}</div>
       <dl class="kv"><dt>레시피</dt><dd>${r.how.map(esc).join(" ")}</dd>
       ${r.note.length ? `<dt>참고</dt><dd>${r.note.map(esc).join(" ")}</dd>` : ""}</dl></div>`).join("");
   }
@@ -669,7 +678,7 @@
       let body = "", last = null;
       for (const i of items) {
         if (i.cond && i.cond !== last) { body += `<h3>${esc(i.cond)}</h3>`; last = i.cond; }
-        body += `<div class="check" style="cursor:default" id="x-${esc(norm(i.name))}"><div><div class="nm">${esc(i.name)}</div><div class="sub">${esc(i.mats)}</div></div></div>`;
+        body += `<div class="check" style="cursor:default" id="x-${esc(norm(i.name))}">${ii(i.name, 32) || `<span class="ii-empty"></span>`}<div><div class="nm">${esc(i.name)}</div><div class="sub">${esc(i.mats)}</div></div></div>`;
       }
       if (sec.notes.length) body += `<p class="small muted">${sec.notes.map(esc).join("<br>")}</p>`;
       h += `<details class="card" id="sec-${D.crafting.sections.indexOf(sec)}"${q || hit ? " open" : ""}><summary><span class="title">${esc(sec.title.replace(/으로 배울 수 있는 제작법$/, ""))}</span><span class="right sub">${items.length}</span></summary><div class="body">${body}</div></details>`;
@@ -680,7 +689,7 @@
   // ---------------------------------------------------------------- 건물
   function pageBuildings() {
     const card = (b) => `<div class="card" id="x-${esc(norm(b.name))}"><div class="daybar"><span class="title">${esc(b.name)}${b.tier ? ` <span class="sub">${esc(b.tier)}</span>` : ""}</span><span class="right sub">⏱ ${esc(b.days)}</span></div>
-      <div class="chips" style="margin:6px 0">${b.cost.map((c) => `<span class="chip">${esc(c)}</span>`).join("")}</div>
+      <div class="chips" style="margin:6px 0">${b.cost.map((c) => `<span class="chip">${ii(c)}${esc(c)}</span>`).join("")}</div>
       ${b.note.length ? `<div class="small muted">${b.note.map(esc).join(" ")}</div>` : ""}</div>`;
     return `<h1>🏡 건물 비용 · 재료</h1>${notesBlock(D.buildings.notes.filter((n) => !n.startsWith("-")), D.buildings.video)}
       <h2>로빈 (목공소)</h2>${D.buildings.robin.map(card).join("")}
@@ -747,7 +756,7 @@
     app.innerHTML = `<h1>「${esc(q)}」</h1>` + kinds.map((k) => {
       const list = hits.filter((h) => h.e.kind === k).slice(0, 30);
       return `<h2>${esc(k)} <span class="sub">${list.length}</span></h2>` + list.map(({ e, score }) =>
-        `<a class="card hit" href="${e.href}"><span class="kind">${esc(e.kind)}${score === 1 ? " · 재료/메모에 포함" : ""}</span><div class="title">${esc(e.name)}</div><div class="sub">${esc(e.sub)}</div></a>`).join("");
+        `<a class="card hit" href="${e.href}"><span class="kind">${esc(e.kind)}${score === 1 ? " · 재료/메모에 포함" : ""}</span><div class="daybar">${ii(e.name, 28) || (e.kind === "주민" ? face(e.name, 28) : "")}<span class="title">${esc(e.name)}</span></div><div class="sub">${esc(e.sub)}</div></a>`).join("");
     }).join("");
   }
 
