@@ -244,6 +244,16 @@
     return `${love}${like}${bad ? `<details class="bad"><summary class="small">👎 주면 안 되는 것</summary>${hate}${dis}</details>` : ""}`;
   }
 
+  // 축제 사진 (위키). 새먼베리철·블랙베리철은 축제가 아니라 열매 아이콘을 쓴다.
+  const FEST = window.SDV_FESTIVALS || {};
+  function festCard(e) {
+    const f = FEST[e];
+    if (!f) return `<div class="card"><div class="event"><span class="ico">${ii(e.replace(/철$/, ""), 32) || "🎉"}</span><div><b>${esc(e)}</b>${/철$/.test(e) ? `<div class="small muted">마을 곳곳 덤불에서 열매를 딸 수 있어요</div>` : ""}</div></div></div>`;
+    return `<div class="card fest"><img src="${esc(f.img)}" alt="${esc(e)}" loading="lazy">
+      <div class="daybar" style="margin-top:8px"><b class="title">🎉 ${esc(e)}</b><a class="right small" href="${esc(f.wiki)}" target="_blank" rel="noopener">위키에서 보기</a></div></div>`;
+  }
+  const festThumb = (e, cls = "fthumb") => (FEST[e] ? `<img class="${cls}" src="${esc(FEST[e].img)}" alt="" loading="lazy">` : ii(e.replace(/철$/, ""), 18));
+
   function villagerCard(v, open) {
     const b = v.birthday;
     const left = b ? daysUntil(b) : null;
@@ -451,7 +461,7 @@
       h += `<div class="card"><div class="event"><span class="ico">${face(name, 56) || "🎂"}</span><div><b>${esc(name)}</b> 생일이에요 — 선물 효과 8배!
         ${v ? `<div style="margin-top:6px">${giftChips(v)}</div>` : ""}</div></div></div>`;
     }
-    for (const e of today.events) h += `<div class="card"><div class="event"><span class="ico">🎉</span><div><b>${esc(e)}</b></div></div></div>`;
+    for (const e of today.events) h += festCard(e);
 
     const up = [];
     for (let i = 1; i <= 7; i++) {
@@ -459,7 +469,7 @@
       const ss = Math.floor((o % 112) / 28), dd = (o % 28) + 1;
       const day = (D.calendar.days[SEASONS[ss]] || {})[dd];
       if (!day) continue;
-      const bits = [...day.birthdays.map((n) => `${face(n, 22) || "🎂"} ${link("gifts", n, esc(n), "")}`), ...day.events.map((e) => `🎉 ${esc(e)}`)];
+      const bits = [...day.birthdays.map((n) => `${face(n, 22) || "🎂"} ${link("gifts", n, esc(n), "")}`), ...day.events.map((e) => `${festThumb(e) || "🎉"} ${esc(e)}`)];
       if (bits.length) up.push(`<li><b>${SEASONS[ss]} ${dd}일 (${dow(dd)})</b> <span class="muted">${i === 1 ? "내일" : i + "일 후"}</span> · ${bits.join(" · ")}</li>`);
     }
     if (up.length) h += `<h3>다가오는 7일</h3><div class="card"><ul class="plain upcoming">${up.join("")}</ul></div>`;
@@ -515,13 +525,13 @@
     for (let d = 1; d <= 28; d++) {
       const day = days[d] || { birthdays: [], events: [] };
       const cls = [cs === season() && d === date.d ? "today" : "", d === sel ? "sel" : ""].join(" ");
-      h += `<button class="${cls}" data-day="${d}"><span class="n">${d}</span>${day.birthdays.map((b) => `<span class="b">${face(b, 22) || "🎂"}${esc(b)}</span>`).join("")}${day.events.map((e) => `<span class="e">${esc(e)}</span>`).join("")}</button>`;
+      h += `<button class="${cls}" data-day="${d}"><span class="n">${d}</span>${day.birthdays.map((b) => `<span class="b">${face(b, 22) || "🎂"}${esc(b)}</span>`).join("")}${day.events.map((e) => `<span class="e">${FEST[e] ? festThumb(e, "cthumb") : ""}${esc(e)}</span>`).join("")}</button>`;
     }
     h += `</div></div>`;
     const day = days[sel] || { birthdays: [], events: [] };
     h += `<h2>${cs} ${sel}일 (${dow(sel)})</h2>`;
     if (!day.birthdays.length && !day.events.length) h += `<div class="card muted">일정 없음</div>`;
-    for (const e of day.events) h += `<div class="card">🎉 <b>${esc(e)}</b></div>`;
+    for (const e of day.events) h += festCard(e);
     for (const n of day.birthdays) { const v = vByName.get(n); if (v) h += villagerCard(v); }
     return h;
   }

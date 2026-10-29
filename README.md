@@ -82,3 +82,6 @@ match /stardew/{doc} {
 
 `python tools/fetch_buildings.py` 는 영어 위키에서 건물 그림 26장을 받아 `assets/buildings/` 와 `data/buildings.js` 를 만든다
 (무거운 지하실 사진은 줄여서 webp, 배송상자 움짤은 첫 장만).
+
+`python tools/fetch_festivals.py` 는 영어 위키 축제 문서의 대표 사진 12장을 받아 폰에 맞게 줄여
+`assets/festivals/` 와 `data/festivals.js` 를 만든다.
