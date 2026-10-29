@@ -865,11 +865,21 @@
   }
 
   // ---------------------------------------------------------------- 기초
+  // 쩌구블로그 팁 (data/tips.js) — 블로그 글 요약, 원문 링크를 같이 단다
+  function tipsBlock() {
+    const T = window.SDV_TIPS;
+    if (!T) return "";
+    return `<h2 id="x-${esc(norm(T.title))}">📝 ${esc(T.title)}</h2>
+      <p class="small muted" style="margin:-4px 0 8px">블로그 글을 짧게 간추렸어요 · <a href="${esc(T.url)}" target="_blank" rel="noopener">원문 보기</a></p>
+      ${T.groups.map((g, i) => `<details class="card" id="tip-${i}"${i === 0 ? " open" : ""}><summary><span class="title">${esc(g.title)}</span><span class="right sub">${g.items.length}</span></summary>
+        <div class="body"><ul class="plain">${g.items.map((t) => `<li style="margin:5px 0">${esc(t)}</li>`).join("")}</ul></div></details>`).join("")}`;
+  }
   const PC_ONLY = /PC버전|모드나 리텍/;
   function pageBasics() {
     return `<h1>📖 뉴비 기초</h1>
       <div class="card"><ul class="plain">${D.basics.tips.filter((t) => !t.includes("뉴비 집중") && !PC_ONLY.test(t)).map((t) => `<li style="margin:6px 0">${esc(t)}${t.includes("황금호두") ? `<br><a href="${esc(D.author.url)}/search?query=${encodeURIComponent("황금호두")}" target="_blank" rel="noopener">▶ 에글이 채널에서 황금호두 영상 찾기</a>` : ""}</li>`).join("")}</ul></div>
       <p class="small muted">PC·모드 관련 팁은 스위치에선 해당이 없어서 뺐어요. 원작자: <a href="${esc(D.author.url)}" target="_blank" rel="noopener">유튜브 에글이</a> · <a href="${esc(D.source)}" target="_blank" rel="noopener">원본 구글 시트</a></p>
+      ${tipsBlock()}
       <h2>이 폰에 저장된 것</h2>
       <div class="card small">게임 날짜·번들 체크는 농장마다 따로 저장돼요.<br><button class="btn" data-act="reset" style="margin-top:8px">${esc(curFarm().name)} 번들 체크 지우기</button></div>`;
   }
@@ -903,6 +913,7 @@
       add("선물", name, sub, `#/gifts?focus=${encodeURIComponent(first)}`);
     }
     for (const it of bundleItems) add("번들", it.label, it.bundle.name + (done.has(it.id) ? " · ✅ 모음" : ""), `#/bundles?focus=${encodeURIComponent(it.bundle.name)}`);
+    for (const g of (window.SDV_TIPS || { groups: [] }).groups) for (const t of g.items) add("팁", t, g.title, "#/basics?focus=" + encodeURIComponent(window.SDV_TIPS.title), t);
     for (const b of [...D.buildings.robin, ...D.buildings.wizard]) add("건물", b.name + (b.tier ? " " + b.tier : ""), b.cost.join(", "), `#/buildings?focus=${encodeURIComponent(b.name)}`);
     return idx;
   }
