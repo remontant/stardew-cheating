@@ -19,12 +19,16 @@
     set(k, v) { try { localStorage.setItem("sdv." + k, JSON.stringify(v)); } catch (e) { /* 사생활 보호 모드 */ } },
   };
   // 멀티 농장이 둘이라 날짜·날씨·번들 체크는 농장마다 따로 저장한다
-  const FARMS = [
+  // 농장 목록은 홈에서 더하고(최대 5개) 고칠 수 있다. 처음엔 둘로 시작한다.
+  const MAX_FARMS = 5;
+  const DEFAULT_FARMS = [
     { id: "mareapu", name: "MAREAPU 농장", who: "gihoon · cojee" },
     { id: "mar", name: "마르농장", who: "호스트 cojee" },
   ];
-  let farm = store.get("farm", "mareapu");
-  if (!FARMS.some((f) => f.id === farm)) farm = "mareapu";
+  let FARMS = store.get("farms", DEFAULT_FARMS);
+  if (!Array.isArray(FARMS) || !FARMS.length) FARMS = DEFAULT_FARMS;
+  let farm = store.get("farm", FARMS[0].id);
+  if (!FARMS.some((f) => f.id === farm)) farm = FARMS[0].id;
   const fk = (k) => farm + "." + k;
   const curFarm = () => FARMS.find((f) => f.id === farm);
   // 농장을 나누기 전에 저장한 것은 MAREAPU 농장 것으로 옮긴다
@@ -92,9 +96,28 @@
       const fb = firebase.initializeApp(cfg, "stardew");
       await fb.auth().signInAnonymously();
       db = fb.firestore();
+      watchFarms();
       watchFarm();
     } catch (e) { console.warn("firebase", e); setSync("error"); }
   }
+  // 농장 목록도 둘이 같이 쓴다 (stardew/_farms 문서)
+  function pushFarms() {
+    if (!db) return;
+    db.collection("stardew").doc("_farms").set({ list: FARMS, updatedAt: stamp() }, { merge: true }).catch((e) => console.warn(e));
+  }
+  function watchFarms() {
+    db.collection("stardew").doc("_farms").onSnapshot((snap) => {
+      const d = snap.data();
+      if (!d || !Array.isArray(d.list) || !d.list.length) { pushFarms(); return; }
+      if (JSON.stringify(d.list) === JSON.stringify(FARMS)) return;
+      FARMS = d.list;
+      store.set("farms", FARMS);
+      if (!FARMS.some((f) => f.id === farm)) switchFarm(FARMS[0].id);
+      showFarm();
+      if (!$("#q").value && !$("#dateDlg").open && !$("#farmDlg").open) render(true);
+    }, (e) => console.warn(e));
+  }
+
   function watchFarm() {
     if (!db) return;
     if (unsub) unsub();
@@ -407,8 +430,10 @@
     const s = season();
     const today = (D.calendar.days[s] || {})[date.d] || { birthdays: [], events: [] };
     let h = `<div class="card today">
-      <div class="filters" style="margin:0 0 2px;padding:0">${FARMS.map((f) =>
-        `<button class="f${f.id === farm ? " on" : ""}" data-farm="${f.id}">${esc(f.name)}</button>`).join("")}</div>
+      <div class="filters" style="margin:0 0 2px;padding:0;flex-wrap:wrap">${FARMS.map((f) =>
+        `<button class="f${f.id === farm ? " on" : ""}" data-farm="${esc(f.id)}">${esc(f.name)}</button>`).join("")}
+        ${FARMS.length < MAX_FARMS ? `<button class="f" data-act="farm-add">＋ 농장</button>` : ""}
+        <button class="f" data-act="farm-edit" aria-label="이 농장 이름 바꾸기">✏️</button></div>
       <div class="motto">🌾 ${esc(curFarm().name)} 번성하라!</div>
       ${syncNote()}
       <div class="daybar"><div class="big">${esc(dateText())}</div></div>
@@ -541,12 +566,18 @@
         rh += `<details class="card" id="x-${esc(norm(b.name))}"${open ? " open" : ""}>
           <summary><span class="title">${esc(b.name)}</span>
             ${b.pick ? `<span class="sub">${b.items.length}개 중 ${b.pick}개</span>` : ""}
-            <span class="right">${complete ? `<span class="badge">완료</span>` : `<span class="sub">${have}/${need}</span>`}</span></summary>
+            <span class="right">${complete ? `<span class="badge">완료</span>` : `<span class="sub">${have}/${need}</span>`}</span>
+            <span class="slots">${b.items.map((it) => {
+              // 게임의 번들 칸처럼: 낸 것은 진하게, 아직은 흐리게
+              const got = done.has(b.name + "|" + it.label);
+              const src = itemSrc(it.label);
+              return `<span class="slot${got ? " got" : ""}" title="${esc(it.label)}">${src ? `<img class="px" src="${esc(src)}" alt="${esc(it.label)}">` : it.cat === "골드" ? "🪙" : "❔"}</span>`;
+            }).join("")}</span></summary>
           <div class="body">${items.map((it) => {
             const id = b.name + "|" + it.label;
             const where = [...it.seasons.map(tag), it.cat && `<span class="sub">${esc(it.cat.replace("(?)", ""))}</span>`, it.where.length && `<span class="sub">· ${esc(it.where.join(" / "))}</span>`].filter(Boolean).join(" ");
             return `<label class="check${done.has(id) ? " done" : ""}"><input type="checkbox" data-check="${esc(id)}"${done.has(id) ? " checked" : ""}>
-              ${ii(it.label, 32) || `<span class="ii-empty"></span>`}<div><div class="nm">${esc(it.label)}${it.times > 1 ? ` ×${it.times}` : ""}</div><div>${where}</div></div></label>`;
+              <span class="bigslot">${ii(it.label, 44) || (it.cat === "골드" ? "🪙" : "")}</span><div><div class="nm">${esc(it.label)}${it.times > 1 ? ` ×${it.times}` : ""}</div><div>${where}</div></div></label>`;
           }).join("")}</div></details>`;
       }
       if (rh) h += `<h2>${esc(room.room)}</h2>${room.note ? `<p class="small muted">${esc(room.note)}</p>` : ""}${rh}`;
@@ -904,16 +935,7 @@
 
   app.addEventListener("click", (e) => {
     const fb = e.target.closest("[data-farm]");
-    if (fb) {
-      farm = fb.dataset.farm;
-      store.set("farm", farm);
-      loadFarm();
-      watchFarm();
-      searchIndex = null;
-      showFarm();
-      render(true);
-      return;
-    }
+    if (fb) { switchFarm(fb.dataset.farm); render(true); return; }
     const fcb = e.target.closest("[data-fc]");
     if (fcb) {
       const st = ((ui.fc ||= {})[fcb.dataset.fc] ||= {});
@@ -946,6 +968,8 @@
       if (a === "next") shiftDate(1);
       if (a === "prev") shiftDate(-1);
       if (a === "pick") return openDate();
+      if (a === "farm-add") return openFarm(null);
+      if (a === "farm-edit") return openFarm(curFarm());
       if (a === "reset" && confirm(`${curFarm().name}의 번들 체크를 전부 지울까요?`)) { done.clear(); store.set(fk("bundles"), []); remote({ bundles: [] }); searchIndex = null; }
       render(true);
     }
@@ -1010,6 +1034,71 @@
     drawDate();
   });
   $("#datePill").addEventListener("click", openDate);
+
+  function switchFarm(id) {
+    farm = id;
+    store.set("farm", farm);
+    loadFarm();
+    watchFarm();
+    searchIndex = null;
+    showFarm();
+  }
+
+  // ---------------------------------------------------------------- 농장 더하기·고치기
+  const fdlg = document.createElement("dialog");
+  fdlg.id = "farmDlg";
+  document.body.appendChild(fdlg);
+  let fdraft = null, fdelete = false;
+  function openFarm(f) {
+    fdraft = f ? { ...f } : { id: "", name: "", who: "" };
+    fdelete = false;
+    drawFarm();
+    if (fdlg.showModal) fdlg.showModal(); else fdlg.setAttribute("open", "");
+    setTimeout(() => { const i = $("#farmName"); if (i && !f) i.focus(); }, 50);
+  }
+  function drawFarm() {
+    const editing = !!fdraft.id;
+    fdlg.innerHTML = `<form id="farmForm" method="dialog">
+      <div class="title">${editing ? "농장 고치기" : "농장 더하기"} <span class="sub">${editing ? "" : `(${FARMS.length}/${MAX_FARMS})`}</span></div>
+      <label class="fld">농장 이름<input id="farmName" maxlength="20" required value="${esc(fdraft.name)}" placeholder="예: 별빛농장"></label>
+      <label class="fld">같이 하는 사람<input id="farmWho" maxlength="30" value="${esc(fdraft.who)}" placeholder="예: gihoon · cojee"></label>
+      ${editing && FARMS.length > 1 ? (fdelete
+        ? `<p class="small" style="color:var(--rec);margin:8px 0">이 농장의 날짜·번들 체크도 같이 지워져요. 정말 지울까요?</p>
+           <button type="button" class="btn" data-fx="del-yes" style="color:var(--rec)">네, 지울게요</button>`
+        : `<button type="button" class="btn" data-fx="del" style="margin-top:8px">🗑 이 농장 지우기</button>`) : ""}
+      <div class="dlg-foot"><button type="button" class="btn" data-fx="cancel">취소</button><button class="btn primary" type="submit">저장</button></div>
+    </form>`;
+  }
+  fdlg.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-fx]");
+    if (!b) return;
+    const k = b.dataset.fx;
+    if (k === "cancel") return fdlg.close();
+    if (k === "del") { fdraft.name = $("#farmName").value; fdraft.who = $("#farmWho").value; fdelete = true; return drawFarm(); }
+    if (k === "del-yes") {
+      FARMS = FARMS.filter((f) => f.id !== fdraft.id);
+      for (const key of ["date", "weather", "bundles"]) { try { localStorage.removeItem(`sdv.${fdraft.id}.${key}`); } catch (err) { /* 무시 */ } }
+      store.set("farms", FARMS); pushFarms();
+      if (farm === fdraft.id) switchFarm(FARMS[0].id); else showFarm();
+      fdlg.close(); render(true);
+    }
+  });
+  fdlg.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = $("#farmName").value.trim();
+    if (!name) return;
+    const who = $("#farmWho").value.trim();
+    if (fdraft.id) {
+      FARMS = FARMS.map((f) => (f.id === fdraft.id ? { ...f, name, who } : f));
+    } else {
+      if (FARMS.length >= MAX_FARMS) return fdlg.close();
+      fdraft.id = "f" + Date.now().toString(36);
+      FARMS = [...FARMS, { id: fdraft.id, name, who }];
+    }
+    store.set("farms", FARMS); pushFarms();
+    switchFarm(fdraft.id);
+    fdlg.close(); render(true);
+  });
 
   function showFarm() {
     const f = curFarm();

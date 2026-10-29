@@ -41,19 +41,20 @@ gihoon · cojee 의 MAREAPU 농장(멀티). 닌텐도 스위치로 거실에서 
 
 ## 농장 · 둘이 같이 보기
 
-농장은 둘이다 — **MAREAPU 농장**(gihoon · cojee) 과 **마르농장**(호스트 cojee). 홈 날짜 카드에서 고른다.
+처음엔 **MAREAPU 농장**(gihoon · cojee) 과 **마르농장**(호스트 cojee) 둘이고, 홈 날짜 카드에서
+「＋ 농장」으로 최대 5개까지 더하고 ✏️ 로 이름을 바꾸거나 지운다.
 게임 날짜·날씨·번들 체크는 농장마다 따로 저장된다.
 
 `assets/firebase-config.js` 가 `null` 이면 각 폰에만 저장되고, Firebase 설정을 넣으면
-Firestore 의 `stardew/{mareapu|mar}` 문서를 둘이 같이 쓴다(한쪽이 체크하면 다른 폰에 바로 뜬다).
+Firestore 의 `stardew/{농장id}` 문서(체크·날짜)와 `stardew/_farms` 문서(농장 목록)를 둘이 같이 쓴다.
 
 Firebase 쪽에서 할 일:
 1. Authentication → 로그인 방법 → **익명** 사용 설정
 2. Firestore → 규칙에 아래 블록을 **기존 규칙 안에 추가** (다른 앱 규칙은 그대로 둔다)
 
 ```
-match /stardew/{farm} {
-  allow read, write: if request.auth != null && farm in ['mareapu', 'mar'];
+match /stardew/{doc} {
+  allow read, write: if request.auth != null;
 }
 ```
 
