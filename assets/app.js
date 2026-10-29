@@ -1027,6 +1027,7 @@
     const hits = searchIndex.map((e) => ({ e, score: e.n === nq ? 3 : e.n.includes(nq) ? 2 : e.x.includes(nq) ? 1 : 0 }))
       .filter((h) => h.score).sort((a, b) => b.score - a.score);
     setActiveTab(null);
+    app.dataset.page = "search";
     if (!hits.length) return void (app.innerHTML = `<div class="empty">「${esc(q)}」 검색 결과가 없어요. 띄어쓰기 없이도 찾아져요.</div>`);
     const kinds = [...new Set(hits.map((h) => h.e.kind))];
     app.innerHTML = `<h1>「${esc(q)}」</h1>` + kinds.map((k) => {
@@ -1065,6 +1066,7 @@
     const y = window.scrollY;
     // 필터를 누르거나 체크할 때 다시 그려도, 펼쳐 둔 카드는 그대로 펼쳐 둔다
     const openIds = keepScroll ? $$("details[open]", app).map((d) => d.id).filter(Boolean) : [];
+    app.dataset.page = page[0] || "home"; // PC 넓은 화면 배치(style.css)용
     app.innerHTML = page[2](params);
     for (const oid of openIds) { const d = document.getElementById(oid); if (d) d.open = true; }
     setActiveTab(page[0]);

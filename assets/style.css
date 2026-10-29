@@ -383,3 +383,29 @@ img.cthumb { display: block; width: 100%; height: 18px; object-fit: cover; borde
 @keyframes pulse { 50% { transform: translateY(-50%) scale(1.15); } }
 @media (prefers-reduced-motion: reduce) { .search .mic.on { animation: none; } }
 #searchForm input { padding-right: 44px; }
+
+/* ---------- PC 같은 넓은 화면 ----------
+   폰 기준(한 줄)으로 만든 화면이라 PC에선 크고 길게만 보였다. 넓으면 카드를 여러 줄로 나란히 놓고 글자를 한 단 줄인다. */
+@media (min-width: 900px) {
+  body { font-size: 15px; }
+  main { max-width: 1200px; padding-left: 24px; padding-right: 24px; }
+  /* 카드 목록이 이어지는 화면: 제목·필터·안내는 한 줄 전체, 카드는 칸에 */
+  main[data-page="gifts"], main[data-page="fish"], main[data-page="forage"], main[data-page="buildings"],
+  main[data-page="growcal"], main[data-page="crops"], main[data-page="search"], main[data-page="basics"],
+  main [data-list] {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0 16px; align-items: start;
+  }
+  main[data-page] > *, main [data-list] > * { grid-column: 1 / -1; }
+  main[data-page="gifts"] > .card.person, main[data-page="fish"] > .card, main[data-page="forage"] > .card:not(#map),
+  main[data-page="buildings"] > .card, main[data-page="growcal"] > a.card.gc, main[data-page="crops"] > details.card,
+  main[data-page="search"] > a.card, main[data-page="basics"] > .card.tip, main [data-list] > * { grid-column: auto; }
+  /* 홈: 오늘·다가오는 일정 등은 가운데 적당한 폭으로 */
+  main[data-page="home"] { max-width: 820px; }
+  .top > * { max-width: 1352px; margin-left: auto; margin-right: auto; }
+  .tabs { margin-left: auto; margin-right: auto; padding-left: 0; padding-right: 0; }
+  .bigslot { width: 50px; height: 50px; }
+  h1 { font-size: 24px; }
+}
+@media (min-width: 1300px) {
+  main { max-width: 1400px; }
+}
