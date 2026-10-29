@@ -898,24 +898,59 @@
   }
 
   // ---------------------------------------------------------------- 배치·범위
-  function gridHTML(rows, maxPx = 26) {
+  // 범위 그림. sprites 로 칸 글자(S·C·B·F)에 게임 그림을 얹고, H(주니모 오두막)는 덩어리 전체에 그림 하나를 겹친다.
+  function gridHTML(rows, maxPx = 26, sprites = {}) {
     const cols = rows[0].length;
     const avail = Math.min(window.innerWidth, 760) - 60;
     const cell = Math.max(5, Math.min(maxPx, Math.floor(avail / cols) - 1));
+    let hut = "";
+    if (sprites.H) {
+      const cells = [];
+      rows.forEach((r, y) => [...r].forEach((ch, x) => ch === "H" && cells.push([x, y])));
+      if (cells.length) {
+        const xs = cells.map((c) => c[0]), ys = cells.map((c) => c[1]);
+        const x0 = Math.min(...xs), y0 = Math.min(...ys), w = Math.max(...xs) - x0 + 1, hgt = Math.max(...ys) - y0 + 1;
+        const step = cell + 1;
+        hut = `<img class="hut" src="${esc(sprites.H)}" alt="" style="left:${1 + x0 * step}px;top:${1 + (y0 - 1) * step}px;width:${w * step}px;height:${(hgt + 1) * step}px">`;
+      }
+    }
+    const cellHTML = (ch) => {
+      if (ch === ".") return "<i></i>";
+      const sp = sprites[ch] && ch !== "H" ? ` style="background-image:url('${esc(sprites[ch])}')"` : "";
+      return `<i class="${ch}${sp ? " sp" : ""}"${sp}></i>`;
+    };
     return `<div class="scroll-x"><div class="grid" style="--cell:${cell}px;grid-template-columns:repeat(${cols}, var(--cell))">${rows.map((r) =>
-      [...r].map((ch) => `<i class="${ch === "." ? "" : ch}"></i>`).join("")).join("")}</div></div>`;
+      [...r].map(cellHTML).join("")).join("")}${hut}</div></div>`;
   }
-  const legend = (pairs) => `<div class="legend">${pairs.map(([cls, label]) => `<span><i class="${cls}"></i>${label}</span>`).join("")}</div>`;
+  // 범례: 그림이 있으면 그림, 없으면 색 칸
+  const legend = (pairs, sprites = {}) => `<div class="legend">${pairs.map(([cls, label]) =>
+    `<span>${sprites[cls] ? px(sprites[cls], 22) : `<i class="${cls}"></i>`}${label}</span>`).join("")}</div>`;
 
   function pageRanges() {
     const R = D.ranges;
     let h = `<h1>📐 배치 · 범위</h1>`;
     h += `<h2>💧 스프링클러 · 주니모 오두막</h2>${notesBlock(R.sprinkler.notes, R.sprinkler.video)}`;
-    for (const it of R.sprinkler.items) h += `<div class="card"><div class="title">${esc(it.title)}</div>${legend(it.title.includes("주니모") ? [["H", "주니모 오두막"], ["S", "이리듐 스프링클러"], ["r", "범위"]] : [["S", "스프링클러"], ["r", "물 주는 칸"]])}${gridHTML(it.grid)}</div>`;
+    const BI = window.SDV_BUILDINGS || {};
+    for (const it of R.sprinkler.items) {
+      const junimo = it.title.includes("주니모");
+      // 제목으로 어느 스프링클러인지 고른다 (「이리듐 스프링클러 + 고압노즐」도 이리듐)
+      const kind = junimo || it.title.includes("이리듐") ? "이리듐스프링클러" : it.title.includes("고급") ? "고급스프링클러" : "스프링클러";
+      const sp = { S: itemSrc(kind), H: junimo ? BI["주니모 오두막|"] : null };
+      h += `<div class="card"><div class="daybar">${junimo ? (sp.H ? `<img class="px" src="${esc(sp.H)}" alt="" style="height:36px">` : "") : ii(kind, 32)}<span class="title">${esc(it.title)}</span></div>
+        ${legend(junimo ? [["H", "주니모 오두막"], ["S", "이리듐 스프링클러"], ["r", "범위"]] : [["S", "스프링클러"], ["r", "물 주는 칸"]], sp)}${gridHTML(it.grid, 26, sp)}</div>`;
+    }
     h += `<h2>🧑‍🌾 허수아비</h2>${notesBlock(R.scarecrow.notes)}`;
-    for (const it of R.scarecrow.items) h += `<div class="card"><div class="title">${esc(it.title)}</div>${it.memo ? `<p class="small muted" style="margin:4px 0">${esc(it.memo)}</p>` : ""}${legend([["C", "허수아비"], ["r", "지켜주는 칸"]])}${gridHTML(it.grid)}</div>`;
+    for (const it of R.scarecrow.items) {
+      const kind = it.title.includes("디럭스") ? "디럭스허수아비" : "허수아비";
+      const sp = { C: itemSrc(kind) };
+      h += `<div class="card"><div class="daybar">${ii(kind, 36)}<span class="title">${esc(it.title)}</span></div>${it.memo ? `<p class="small muted" style="margin:4px 0">${esc(it.memo)}</p>` : ""}
+        ${legend([["C", kind === "허수아비" ? "허수아비" : "디럭스 허수아비"], ["r", "지켜주는 칸"]], sp)}${gridHTML(it.grid, 26, sp)}</div>`;
+    }
     h += `<h2>🐝 양봉장 배치 예시</h2>${notesBlock(R.bee.notes, R.bee.video)}
-      <div class="card">${legend([["B", "양봉장"], ["F", "꽃"], ["S", "스프링클러"], ["C", "허수아비"]])}${gridHTML(R.bee.grid, 22)}
+      <div class="card">${(() => {
+        const sp = { B: itemSrc("양봉장"), F: itemSrc("요정장미"), S: itemSrc("고급스프링클러"), C: itemSrc("허수아비") };
+        return legend([["B", "양봉장"], ["F", "꽃 (요정장미 등)"], ["S", "스프링클러"], ["C", "허수아비"]], sp) + gridHTML(R.bee.grid, 26, sp);
+      })()}
       <ul class="plain small">${R.bee.tips.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>`;
     return h;
   }
@@ -1103,6 +1138,14 @@
       box.innerHTML = cookList(cookFiltered(), params);
     } else if (inp.dataset.input === "craftQ") box.innerHTML = craftList(norm(inp.value));
   });
+
+  // PC 에서 가로 메뉴(탭·필터)를 마우스 휠로 옆으로 넘긴다. 폰은 손가락으로 밀면 된다.
+  document.addEventListener("wheel", (e) => {
+    const row = e.target.closest(".tabs, .filters");
+    if (!row || row.scrollWidth <= row.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    row.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
 
   let tmr;
   $("#q").addEventListener("input", (e) => {

@@ -359,3 +359,14 @@ details.bad > summary { cursor: pointer; color: var(--muted); font-weight: 700; 
 .card.fest img { display: block; width: 100%; height: auto; max-height: 220px; object-fit: cover; border-radius: 4px; border: 3px solid var(--wood); image-rendering: pixelated; }
 img.fthumb { width: 34px; height: 22px; object-fit: cover; border-radius: 3px; border: 2px solid var(--wood); vertical-align: middle; }
 img.cthumb { display: block; width: 100%; height: 18px; object-fit: cover; border-radius: 2px; margin: 1px 0; }
+
+/* 범위 그림 위 게임 그림 */
+.grid { position: relative; }
+.grid i.sp { background-size: contain; background-repeat: no-repeat; background-position: center bottom; image-rendering: pixelated; }
+.grid img.hut { position: absolute; object-fit: contain; object-position: center bottom; image-rendering: pixelated; pointer-events: none; }
+.legend img.px { height: 22px; }
+
+/* 넓은 화면(PC)에서는 탭을 여러 줄로 다 보여준다 */
+@media (min-width: 700px) {
+  .tabs { flex-wrap: wrap; overflow: visible; }
+}
