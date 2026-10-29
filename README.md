@@ -79,3 +79,6 @@ match /stardew/{doc} {
 
 `python tools/fetch_forage.py` 는 한국어 위키 채집물 문서에서 판매가·식용값을 받아 `data/forageinfo.js` 를 만든다.
 채집 위치는 시트의 위치 글에서 장소 이름(비밀의 숲·해변·산 …)을 찾아 마을 지도에 핀으로 꽂는다.
+
+`python tools/fetch_buildings.py` 는 영어 위키에서 건물 그림 26장을 받아 `assets/buildings/` 와 `data/buildings.js` 를 만든다
+(무거운 지하실 사진은 줄여서 webp, 배송상자 움짤은 첫 장만).

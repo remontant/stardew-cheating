@@ -873,9 +873,15 @@
 
   // ---------------------------------------------------------------- 건물
   function pageBuildings() {
-    const card = (b) => `<div class="card" id="x-${esc(norm(b.name))}"><div class="daybar"><span class="title">${esc(b.name)}${b.tier ? ` <span class="sub">${esc(b.tier)}</span>` : ""}</span><span class="right sub">⏱ ${esc(b.days)}</span></div>
-      <div class="chips" style="margin:6px 0">${b.cost.map((c) => `<span class="chip">${ii(c)}${esc(c)}</span>`).join("")}</div>
-      ${b.note.length ? `<div class="small muted">${b.note.map(esc).join(" ")}</div>` : ""}</div>`;
+    const BI = window.SDV_BUILDINGS || {};
+    const card = (b) => {
+      const img = BI[b.name + "|" + b.tier];
+      return `<div class="card" id="x-${esc(norm(b.name))}"><div class="bhead">
+        ${img ? `<span class="bimg"><img src="${esc(img)}" alt="${esc(b.name)}" loading="lazy"></span>` : ""}
+        <div style="min-width:0;flex:1"><div class="daybar"><span class="title">${esc(b.name)}${b.tier ? ` <span class="sub">${esc(b.tier)}</span>` : ""}</span><span class="right sub">⏱ ${esc(b.days)}</span></div>
+        <div class="chips" style="margin:6px 0">${b.cost.map((c) => `<span class="chip">${/골드|^[\d,]+개$/.test(c) ? "🪙 " : ii(c)}${esc(c)}</span>`).join("")}</div>
+        ${b.note.length ? `<div class="small muted">${b.note.map(esc).join(" ")}</div>` : ""}</div></div></div>`;
+    };
     return `<h1>🏡 건물 비용 · 재료</h1>${notesBlock(D.buildings.notes.filter((n) => !n.startsWith("-")), D.buildings.video)}
       <h2>로빈 (목공소)</h2>${D.buildings.robin.map(card).join("")}
       <h2>마법사의 탑 (즉시 건설)</h2>${D.buildings.wizard.map(card).join("")}`;
