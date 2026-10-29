@@ -114,6 +114,7 @@
     const s = season();
     const today = (D.calendar.days[s] || {})[date.d] || { birthdays: [], events: [] };
     let h = `<div class="card today">
+      <div class="motto">🌾 MAREAPU 농장 번성하라!</div>
       <div class="daybar"><div class="big">${esc(dateText())}</div></div>
       <div class="daybar">
         <button class="btn" data-act="prev">◀ 어제</button>

@@ -1,6 +1,6 @@
-# 스타듀 커닝페이퍼 🌱
+# MAREAPU 농장 번성하라 🌱
 
-닌텐도 스위치로 거실에서 스타듀밸리 하면서 폰으로 보려고 만든 공략 페이지.
+gihoon · cojee 의 MAREAPU 농장(멀티). 닌텐도 스위치로 거실에서 스타듀밸리 하면서 폰으로 보려고 만든 공략 페이지.
 
 정보는 전부 **유튜브 [에글이](https://www.youtube.com/@%EC%97%90%EA%B8%80%EC%9D%B4) 님의
 [스타듀밸리 구글 시트](https://docs.google.com/spreadsheets/d/1y9wapWb8nqG0fVHTpCD82pj-Ak1Ms9VSbwV10oN5K5E/edit)** 에서 가져왔다.
