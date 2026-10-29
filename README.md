@@ -38,3 +38,21 @@ gihoon · cojee 의 MAREAPU 농장(멀티). 닌텐도 스위치로 거실에서 
 - 달력 가을 5일 생일 알렉스 → 엘리엇 (생일은 선물 시트 기준으로 채움)
 - 「에블린린」→ 에블린, 「하빈」→ 하비, 번들 「야채고추냉이」→ 야생고추냉이
 - 제작품의 두 번째 「전투 스킬」 칸(체리폭탄·계단…) → 채광 스킬
+
+## 농장 · 둘이 같이 보기
+
+농장은 둘이다 — **MAREAPU 농장**(gihoon · cojee) 과 **마르농장**(호스트 cojee). 홈 날짜 카드에서 고른다.
+게임 날짜·날씨·번들 체크는 농장마다 따로 저장된다.
+
+`assets/firebase-config.js` 가 `null` 이면 각 폰에만 저장되고, Firebase 설정을 넣으면
+Firestore 의 `stardew/{mareapu|mar}` 문서를 둘이 같이 쓴다(한쪽이 체크하면 다른 폰에 바로 뜬다).
+
+Firebase 쪽에서 할 일:
+1. Authentication → 로그인 방법 → **익명** 사용 설정
+2. Firestore → 규칙에 아래 블록을 **기존 규칙 안에 추가** (다른 앱 규칙은 그대로 둔다)
+
+```
+match /stardew/{farm} {
+  allow read, write: if request.auth != null && farm in ['mareapu', 'mar'];
+}
+```

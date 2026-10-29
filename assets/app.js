@@ -42,6 +42,82 @@
     for (const id of store.get(fk("bundles"), [])) done.add(id);
   }
   loadFarm();
+
+  // ---------------------------------------------------------------- 둘이 같이 보기 (Firebase)
+  // assets/firebase-config.js 에 설정이 있으면 농장마다 stardew/{농장} 문서 하나를 같이 쓴다.
+  // 없거나 연결이 안 되면 지금처럼 이 폰에만 저장한다. 로컬 저장은 늘 같이 해 둔다(오프라인 대비).
+  let db = null, unsub = null, syncState = window.SDV_FIREBASE ? "connecting" : "local";
+  const farmRef = () => db.collection("stardew").doc(farm);
+  const stamp = () => firebase.firestore.FieldValue.serverTimestamp();
+  function remote(fields) {
+    if (!db) return;
+    farmRef().set({ ...fields, updatedAt: stamp() }, { merge: true }).catch((e) => { console.warn(e); setSync("error"); });
+  }
+  function saveDate() { store.set(fk("date"), date); remote({ date }); }
+  function saveWeather() { store.set(fk("weather"), weather); remote({ weather }); }
+  function saveBundle(id, on) {
+    store.set(fk("bundles"), [...done]);
+    if (!db) return;
+    // 둘이 동시에 다른 칸을 체크해도 덮어쓰지 않게 배열 전체가 아니라 한 칸씩 더하고 뺀다
+    const F = firebase.firestore.FieldValue;
+    remote({ bundles: on ? F.arrayUnion(id) : F.arrayRemove(id) });
+  }
+  function setSync(st) {
+    syncState = st;
+    for (const el of $$(".syncNote")) el.outerHTML = syncNote();
+  }
+  function syncNote() {
+    const t = {
+      local: "📱 이 폰에만 저장돼요",
+      connecting: "☁️ 연결하는 중…",
+      live: "☁️ 둘이 같이 보는 중 · 체크와 날짜가 바로 공유돼요",
+      error: "⚠️ 클라우드에 연결이 안 돼서 이 폰에만 저장 중이에요",
+    }[syncState];
+    return `<div class="syncNote small muted">${t}</div>`;
+  }
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const el = document.createElement("script");
+      el.src = src; el.onload = res; el.onerror = rej;
+      document.head.appendChild(el);
+    });
+  }
+  async function startSync() {
+    const cfg = window.SDV_FIREBASE;
+    if (!cfg) return;
+    try {
+      const base = "https://www.gstatic.com/firebasejs/10.12.2/";
+      await loadScript(base + "firebase-app-compat.js");
+      await Promise.all([loadScript(base + "firebase-auth-compat.js"), loadScript(base + "firebase-firestore-compat.js")]);
+      const fb = firebase.initializeApp(cfg, "stardew");
+      await fb.auth().signInAnonymously();
+      db = fb.firestore();
+      watchFarm();
+    } catch (e) { console.warn("firebase", e); setSync("error"); }
+  }
+  function watchFarm() {
+    if (!db) return;
+    if (unsub) unsub();
+    const id = farm;
+    unsub = farmRef().onSnapshot((snap) => {
+      if (id !== farm) return;
+      const d = snap.data();
+      // 처음 여는 농장이면 이 폰에 있던 것을 올린다
+      if (!d) { remote({ date, weather, bundles: [...done] }); setSync("live"); return; }
+      const before = JSON.stringify([date, weather, [...done].sort()]);
+      if (d.date) date = d.date;
+      if (d.weather) weather = d.weather;
+      done.clear();
+      for (const b of d.bundles || []) done.add(b);
+      store.set(fk("date"), date); store.set(fk("weather"), weather); store.set(fk("bundles"), [...done]);
+      setSync("live");
+      if (before === JSON.stringify([date, weather, [...done].sort()])) return;
+      searchIndex = null;
+      // 검색 중이거나 날짜 창이 열려 있을 땐 화면을 갈아엎지 않는다
+      if (!$("#q").value && !$("#dateDlg").open) render(true);
+      $("#datePill").textContent = `${SEASONS[date.s]} ${date.d}일 ▾`;
+    }, (e) => { console.warn(e); setSync("error"); });
+  }
   const ui = {}; // 화면별 필터 상태
 
   const season = () => SEASONS[date.s];
@@ -54,7 +130,7 @@
     while (o < 0) { o += 112; y = Math.max(1, y - 1); }
     while (o >= 112) { o -= 112; y += 1; }
     date = { y, s: Math.floor(o / 28), d: (o % 28) + 1 };
-    store.set(fk("date"), date);
+    saveDate();
   }
 
   // ---------------------------------------------------------------- 색인
@@ -138,6 +214,7 @@
       <div class="filters" style="margin:0 0 2px;padding:0">${FARMS.map((f) =>
         `<button class="f${f.id === farm ? " on" : ""}" data-farm="${f.id}">${esc(f.name)}</button>`).join("")}</div>
       <div class="motto">🌾 ${esc(curFarm().name)} 번성하라!</div>
+      ${syncNote()}
       <div class="daybar"><div class="big">${esc(dateText())}</div></div>
       <div class="daybar">
         <button class="btn" data-act="prev">◀ 어제</button>
@@ -252,7 +329,7 @@
     let h = `<h1>📦 마을회관 번들</h1>${notesBlock(D.bundles.notes, D.bundles.video)}
       <div class="card"><b>전체 진행</b> <span class="sub">${got} / ${total}</span>
       <div class="progress"><i style="width:${(got / total * 100).toFixed(1)}%"></i></div>
-      <span class="small muted">🌾 ${esc(curFarm().name)} 체크리스트 · 이 폰에만 저장돼요. 농장은 홈에서 바꿔요.</span></div>
+      <span class="small muted">🌾 ${esc(curFarm().name)} 체크리스트 · 농장은 홈에서 바꿔요.</span>${syncNote()}</div>
       ${filterRow("bundleView", [["all", "전체"], ["season", `${s}에만 구할 수 있는 것`], ["left", "안 모은 것만"]], view)}`;
     for (const room of D.bundles.rooms) {
       let rh = "";
@@ -453,7 +530,7 @@
       <div class="card"><ul class="plain">${D.basics.tips.filter((t) => !t.includes("뉴비 집중") && !PC_ONLY.test(t)).map((t) => `<li style="margin:6px 0">${esc(t)}</li>`).join("")}</ul></div>
       <p class="small muted">PC·모드 관련 팁은 스위치에선 해당이 없어서 뺐어요. 원작자: <a href="${esc(D.author.url)}" target="_blank" rel="noopener">유튜브 에글이</a> · <a href="${esc(D.source)}" target="_blank" rel="noopener">원본 구글 시트</a></p>
       <h2>이 폰에 저장된 것</h2>
-      <div class="card small">게임 날짜·번들 체크는 농장마다 따로, 이 브라우저에만 저장돼요.<br><button class="btn" data-act="reset" style="margin-top:8px">${esc(curFarm().name)} 번들 체크 지우기</button></div>`;
+      <div class="card small">게임 날짜·번들 체크는 농장마다 따로 저장돼요.<br><button class="btn" data-act="reset" style="margin-top:8px">${esc(curFarm().name)} 번들 체크 지우기</button></div>`;
   }
 
   // ---------------------------------------------------------------- 통합 검색
@@ -548,6 +625,7 @@
       farm = fb.dataset.farm;
       store.set("farm", farm);
       loadFarm();
+      watchFarm();
       searchIndex = null;
       showFarm();
       render(true);
@@ -556,7 +634,7 @@
     const f = e.target.closest("[data-f]");
     if (f) {
       const key = f.dataset.f, v = f.dataset.v;
-      if (key === "weather") { weather = v; store.set(fk("weather"), v); }
+      if (key === "weather") { weather = v; saveWeather(); }
       else ui[key] = v;
       if (key === "calSeason") delete ui.calDay;
       render(true);
@@ -570,7 +648,7 @@
       if (a === "next") shiftDate(1);
       if (a === "prev") shiftDate(-1);
       if (a === "pick") return openDate();
-      if (a === "reset" && confirm(`${curFarm().name}의 번들 체크를 전부 지울까요?`)) { done.clear(); store.set(fk("bundles"), []); searchIndex = null; }
+      if (a === "reset" && confirm(`${curFarm().name}의 번들 체크를 전부 지울까요?`)) { done.clear(); store.set(fk("bundles"), []); remote({ bundles: [] }); searchIndex = null; }
       render(true);
     }
   });
@@ -579,7 +657,7 @@
     if (!c) return;
     const id = c.dataset.check;
     if (c.checked) done.add(id); else done.delete(id);
-    store.set(fk("bundles"), [...done]);
+    saveBundle(id, c.checked);
     searchIndex = null;
     render(true);
   });
@@ -630,7 +708,7 @@
     if (b.dataset.s) draft.s = +b.dataset.s;
     if (b.dataset.d) draft.d = +b.dataset.d;
     if (b.dataset.x === "cancel") return dlg.close();
-    if (b.dataset.x === "ok") { date = draft; store.set(fk("date"), date); dlg.close(); lastId = null; render(); return; }
+    if (b.dataset.x === "ok") { date = draft; saveDate(); dlg.close(); lastId = null; render(); return; }
     drawDate();
   });
   $("#datePill").addEventListener("click", openDate);
@@ -642,6 +720,7 @@
     document.title = f.name + " 번성하라";
   }
   showFarm();
+  startSync();
   $("#srcLink").href = D.source;
   $("#authorLink").href = D.author.url;
   render();
