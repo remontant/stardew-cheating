@@ -320,12 +320,13 @@
       h += `<h3 style="margin-top:4px">${area}</h3><div class="chips">${list.map((f) =>
         link("fish", f.area + f.name, `${esc(f.name)}${needMark(f.name)}`, "chip" + (stillNeeded(f.name).length ? " need" : ""))).join("")}</div>`;
     }
-    h += `</div>`;
+    h += `<p class="small muted" style="margin:8px 0 0">테두리·📦 = 번들에 아직 내야 해요. 잡으면 하나는 남겨두기! (번들 탭에서 체크하면 빠져요)</p></div>`;
 
     // 채집
     const fo = D.forage.list.filter((f) => f.group === s);
     if (fo.length) h += `<h2>🍄 ${s} 채집물</h2><div class="card"><div class="chips">${fo.map((f) =>
-      link("forage", f.name, `${esc(f.name)}${needMark(f.name)}`, "chip" + (stillNeeded(f.name).length ? " need" : ""))).join("")}</div></div>`;
+      link("forage", f.name, `${esc(f.name)}${needMark(f.name)}`, "chip" + (stillNeeded(f.name).length ? " need" : ""))).join("")}</div>
+      <p class="small muted" style="margin:8px 0 0">테두리·📦 = 번들에 아직 내야 해요.</p></div>`;
     return h;
   }
 
