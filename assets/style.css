@@ -324,3 +324,6 @@ details.bad > summary { cursor: pointer; color: var(--muted); font-weight: 700; 
 .fld { display: block; font-size: 14px; font-weight: 700; margin: 10px 0 0; color: var(--muted); }
 .fld input { display: block; width: 100%; margin-top: 4px; font: inherit; font-size: 16px; padding: 9px 12px; border-radius: 6px;
   border: 3px solid var(--wood-dark); background: #fff6dc; color: var(--text); }
+
+.chips.buffs { margin: 6px 0 0; align-items: center; }
+.chip.buff { background: #d9eefc; color: #1f4e79; font-weight: 700; }

@@ -739,15 +739,32 @@
   }
 
   // ---------------------------------------------------------------- 요리
-  function pageCooking(params) {
+  // 요리 버프 (위키). 능력별로 골라 보고, 고르면 수치 높은 순으로 줄 세운다.
+  const BF = window.SDV_BUFFS || {};
+  const STAT_ICON = { 농사: "🌾", 채집: "🍄", 낚시: "🎣", 채광: "⛏️", 공격력: "⚔️", 방어력: "🛡️", 속도: "👟", 행운: "🍀", "최대 기력": "⚡", 자력: "🧲", 면역: "💊" };
+  const STAT_ORDER = ["농사", "채집", "낚시", "채광", "공격력", "방어력", "속도", "행운", "최대 기력", "자력"];
+  const buffOf = (r) => BF[norm(r.name)];
+  function cookFiltered() {
     const q = norm(ui.cookQ ?? "");
-    const list = D.cooking.list.filter((r) => !q || norm(r.name).includes(q) || r.ings.some((i) => norm(i.name).includes(q)));
+    const st = ui.cookBuff ?? "전체";
+    let list = D.cooking.list.filter((r) => !q || norm(r.name).includes(q) || r.ings.some((i) => norm(i.name).includes(q)));
+    if (st !== "전체") {
+      const val = (r) => ((buffOf(r) || { buffs: [] }).buffs.find((b) => b.stat === st) || {}).val || 0;
+      list = list.filter((r) => val(r) > 0).sort((a, b) => val(b) - val(a));
+    }
+    return list;
+  }
+
+  function pageCooking(params) {
+    const list = cookFiltered();
     let h = `<h1>🍳 요리</h1>${notesBlock(D.cooking.notes.filter((n) => !n.includes("이미지 순서")))}
       <details class="card" id="ings"><summary><span class="title">🧺 계절별로 모아둘 재료</span><span class="sub">전 요리 1번씩 만들 때</span></summary><div class="body">
       ${D.cooking.ingredients.map((g) => `<h3>${esc(g.cat)}</h3>
         ${g.all.length ? `<div class="chips">${g.all.map((x) => x.startsWith("[") ? `<b class="small" style="width:100%">${esc(x)}</b>` : `<span class="chip">${esc(x)}</span>`).join("")}</div>` : ""}
         ${SEASONS.filter((s) => g.seasons[s].length).map((s) => `<div style="margin:6px 0">${tag(s)} <span class="chips" style="display:inline-flex">${g.seasons[s].map((x) => `<span class="chip">${esc(x)}</span>`).join("")}</span></div>`).join("")}`).join("")}
       </div></details>
+      <h3 style="margin-bottom:0">💪 먹으면 오르는 능력으로 찾기</h3>
+      ${filterRow("cookBuff", ["전체", ...STAT_ORDER].map((x) => [x, x === "전체" ? "전체" : `${STAT_ICON[x]} ${x}`]), ui.cookBuff ?? "전체")}
       <div class="search"><input type="search" data-input="cookQ" placeholder="요리 이름이나 재료로 찾기" value="${esc(ui.cookQ ?? "")}"></div>`;
     h += `<div data-list>${cookList(list, params)}</div>`;
     return h;
@@ -755,7 +772,9 @@
   function cookList(list) {
     if (!list.length) return `<div class="empty">없어요.</div>`;
     return list.map((r) => `<div class="card" id="x-${esc(norm(r.name))}">
-      <div class="daybar">${ii(r.name, 32)}<span class="title">${esc(r.name)}</span></div>
+      <div class="daybar">${ii(r.name, 32)}<span class="title">${esc(r.name)}</span>
+        ${buffOf(r) && buffOf(r).energy != null ? `<span class="right sub">⚡${buffOf(r).energy} ❤️${buffOf(r).health}</span>` : ""}</div>
+      ${buffOf(r) && buffOf(r).buffs.length ? `<div class="chips buffs">${buffOf(r).buffs.map((b) => `<span class="chip buff">${STAT_ICON[b.stat] || "✨"} ${esc(b.stat)} <b>${b.val > 0 ? "+" : ""}${b.val}</b></span>`).join("")}${buffOf(r).dur ? `<span class="sub">⏱ ${esc(buffOf(r).dur)}</span>` : ""}</div>` : ""}
       <div class="chips" style="margin:6px 0">${r.ings.map((i) => `<span class="chip">${ii(i.name)}${esc(i.name)}${i.n ? ` ×${i.n}` : ""}</span>`).join("")}</div>
       <dl class="kv"><dt>레시피</dt><dd>${r.how.map(esc).join(" ")}</dd>
       ${r.note.length ? `<dt>참고</dt><dd>${r.note.map(esc).join(" ")}</dd>` : ""}</dl></div>`).join("");
@@ -990,8 +1009,7 @@
     const box = $("[data-list]", app);
     const { params } = route();
     if (inp.dataset.input === "cookQ") {
-      const q = norm(inp.value);
-      box.innerHTML = cookList(D.cooking.list.filter((r) => !q || norm(r.name).includes(q) || r.ings.some((i) => norm(i.name).includes(q))), params);
+      box.innerHTML = cookList(cookFiltered(), params);
     } else if (inp.dataset.input === "craftQ") box.innerHTML = craftList(norm(inp.value));
   });
 

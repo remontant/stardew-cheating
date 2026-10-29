@@ -70,3 +70,6 @@ match /stardew/{doc} {
 
 `python tools/fetch_gifts.py` 는 한국어 위키 주민 문서의 「선물」 절에서 사랑함·좋아함·싫어함·혐오함 목록을 받아
 `data/gifts.js` 를 만든다. 선물 화면은 시트의 사랑 목록(빨간 = 추천)을 앞에 두고 위키 목록을 덧붙인다.
+
+`python tools/fetch_buffs.py` 는 한국어 위키 요리 문서들에서 버프(농사·채집·낚시·채광·공격력 …)·지속시간·
+회복량을 받아 `data/buffs.js` 를 만든다. 요리 탭에서 능력별로 골라 수치 높은 순으로 본다.
