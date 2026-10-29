@@ -207,6 +207,53 @@
     return g == null ? null : { ok: g <= left, days: g, left };
   }
 
+  // 오늘 심고 g일 자라면 언제 첫 수확인가. 중간에 이 작물 계절이 아닌 계절로 넘어가면 시든다(ok=false).
+  // 「그 외」 작물(고대과일·파인애플 등)은 온실·섬에서 키우는 걸로 보고 계절을 따지지 않는다.
+  function harvestOf(c, g) {
+    if (typeof g !== "number") return null;
+    const day = date.d + g;
+    const si = date.s + Math.floor((day - 1) / 28);
+    const dd = ((day - 1) % 28) + 1;
+    const ok = c.seasons.includes("그 외") || (si < 4 && SEASONS.slice(date.s, si + 1).every((x) => c.seasons.includes(x)));
+    return { ok, text: `${SEASONS[si % 4]} ${dd}일`, day };
+  }
+  function regrowOf(c) {
+    for (const n of c.notes) {
+      const m = n.match(/(\d+)일마다 수확/);
+      if (m) return +m[1];
+      if (/^매일 수확/.test(n)) return 1;
+    }
+    return null;
+  }
+  // 오늘부터 이 작물 계절이 이어지는 마지막 날 (이번 계절 1일을 1로 센 날수)
+  function seasonEndDay(c) {
+    let k = 1;
+    for (let i = date.s + 1; i < 4 && c.seasons.includes(SEASONS[i]); i++) k++;
+    return k * 28;
+  }
+  function plantNow(c) {
+    const today = `${season()} ${date.d}일`;
+    if (!c.seasons.includes(season()) && !c.seasons.includes("그 외"))
+      return `<div class="plant"><b>📅 오늘(${today}) 심으면?</b><p class="small muted" style="margin:4px 0 0">${esc(c.seasons.join("·"))} 작물이라 지금은 밖에 못 심어요.</p></div>`;
+    const labels = ["비료 없이", "성장촉진", "디럭스", "하이퍼"];
+    const cell = (g) => {
+      const h = harvestOf(c, g);
+      if (!h) return "<td>-</td>";
+      return h.ok ? `<td><b>${h.text}</b> <span class="muted">(${g}일)</span></td>` : `<td class="muted">✕ 시듦 (${g}일)</td>`;
+    };
+    let h = `<div class="plant"><b>📅 오늘(${today}) 심으면 첫 수확</b>
+      <table class="t"><thead><tr><th></th><th>기본</th><th>농업전문가</th></tr></thead><tbody>
+      ${labels.map((l, i) => `<tr><td>${l}</td>${cell(c.grow[i])}${cell(c.grow[i + 4])}</tr>`).join("")}</tbody></table>`;
+    const first = harvestOf(c, c.grow[0]);
+    const re = regrowOf(c);
+    if (re && first && first.ok && !c.seasons.includes("그 외")) {
+      const more = Math.floor((seasonEndDay(c) - first.day) / re);
+      h += `<p class="small" style="margin:0">🔁 그 뒤로 ${re === 1 ? "매일" : re + "일마다"} 또 열려요 → 비료 없이 심으면 계절 끝까지 <b>${more}번</b> 더 수확</p>`;
+    }
+    if (c.seasons.includes("그 외")) h += `<p class="small muted" style="margin:0">온실·진저섬·실내 기준이에요.</p>`;
+    return h + `</div>`;
+  }
+
   function pageHome() {
     const s = season();
     const today = (D.calendar.days[s] || {})[date.d] || { birthdays: [], events: [] };
@@ -258,9 +305,9 @@
     if (!crops.length) h += `<span class="muted">${esc(s)}에 심는 작물이 없어요.</span>`;
     else {
       crops.sort((a, b) => (b.r.ok - a.r.ok) || a.r.days - b.r.days);
-      h += `<table class="t"><thead><tr><th>작물</th><th>자라는 날</th><th>판매가</th></tr></thead><tbody>${crops.map(({ c, r }) =>
-        `<tr style="${r.ok ? "" : "opacity:.45"}"><td>${link("crops", c.name, esc(c.name), "")}${needMark(c.name)}</td><td>${r.days}일${r.ok ? "" : " (늦음)"}</td><td>${gold(c.sell[0])}</td></tr>`).join("")}</tbody></table>
-        <p class="small muted" style="margin:0">비료·직업 없는 기준. 흐린 줄은 이번 계절 안에 못 거둬요. 📦 = 번들에 아직 필요.</p>`;
+      h += `<table class="t"><thead><tr><th>작물</th><th>자라는 날</th><th>첫 수확</th><th>판매가</th></tr></thead><tbody>${crops.map(({ c, r }) =>
+        `<tr style="${r.ok ? "" : "opacity:.45"}"><td>${link("crops", c.name, esc(c.name), "")}${needMark(c.name)}${regrowOf(c) ? " 🔁" : ""}</td><td>${r.days}일</td><td>${r.ok ? harvestOf(c, r.days).text : "✕ 시듦"}</td><td>${gold(c.sell[0])}</td></tr>`).join("")}</tbody></table>
+        <p class="small muted" style="margin:0">비료·직업 없는 기준. 흐린 줄은 계절이 바뀌어 시들어요. 🔁 = 한 번 심으면 계속 열림, 📦 = 번들에 아직 필요. 작물을 누르면 비료별 수확일이 나와요.</p>`;
     }
     h += `</div>`;
 
@@ -360,7 +407,7 @@
   function cropBody(c) {
     const g = c.grow, sl = c.sell;
     const row = (label, arr) => `<tr><td>${label}</td>${arr.map((x) => `<td>${x ?? "-"}</td>`).join("")}</tr>`;
-    let h = `<dl class="kv"><dt>씨앗</dt><dd>${br(c.source)}</dd><dt>씨앗값</dt><dd>${typeof c.seedPrice === "number" ? gold(c.seedPrice) : br(c.seedPrice)}</dd>
+    let h = plantNow(c) + `<dl class="kv"><dt>씨앗</dt><dd>${br(c.source)}</dd><dt>씨앗값</dt><dd>${typeof c.seedPrice === "number" ? gold(c.seedPrice) : br(c.seedPrice)}</dd>
       ${c.memo ? `<dt>참고</dt><dd>${esc(c.memo)}</dd>` : ""}</dl>`;
     if (c.notes.length) h += `<ul class="plain">${c.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`;
     const lb = lovedBy.get(norm(c.name));

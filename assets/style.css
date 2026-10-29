@@ -242,3 +242,7 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 .hit { display: block; text-decoration: none; color: inherit; }
 .hit .kind { font-size: 12px; font-weight: 800; color: var(--accent); }
 .hit:active { transform: translateY(2px); }
+
+/* 작물 카드의 "오늘 심으면" 칸: 게임 달력 종이처럼 */
+.plant { background: #fff6dc; border: 2px solid var(--line); border-radius: var(--r); padding: 10px 12px; margin: 0 0 10px; }
+.plant .t { margin-bottom: 6px; }
