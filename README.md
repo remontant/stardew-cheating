@@ -76,3 +76,6 @@ match /stardew/{doc} {
 
 `python tools/fetch_fish.py` 는 한국어 위키 물고기 문서에서 난이도(0~110)·움직임·크기·기본 판매가를 받아
 `data/fishinfo.js` 를 만든다.
+
+`python tools/fetch_forage.py` 는 한국어 위키 채집물 문서에서 판매가·식용값을 받아 `data/forageinfo.js` 를 만든다.
+채집 위치는 시트의 위치 글에서 장소 이름(비밀의 숲·해변·산 …)을 찾아 마을 지도에 핀으로 꽂는다.

@@ -694,6 +694,33 @@
   }
 
   // ---------------------------------------------------------------- 채집
+  // 마을 지도(assets/map.webp, 822×502) 위 장소 표시 위치(%). 시트 위치 글에 이 이름이 있으면 핀을 꽂는다.
+  // 긴 이름부터 맞춘다(「동쪽 해변」이 「해변」보다 먼저).
+  const PLACES = [
+    ["비밀의 숲", 14.5, 47], ["잉거불 수액 숲", 30, 66], ["잉거불", 30, 66], ["버스정류장", 47, 35],
+    ["산으로 가는 오솔길", 57, 30], ["펠리컨", 61, 54], ["동쪽 해변", 84, 82], ["해변", 73, 80],
+    ["광산", 73.5, 15], ["산", 68.5, 24], ["농장", 33, 41], ["하수구", 66, 72],
+  ];
+  const ANYWHERE = /스타듀밸리 전체|스타듀밸리 토양/;
+  function placesOf(text) {
+    let t = String(text || "");
+    const found = [];
+    for (const [name, x, y] of PLACES) {
+      if (t.includes(name)) { found.push({ name, x, y }); t = t.split(name).join(" "); }
+    }
+    return found;
+  }
+  function miniMap(where) {
+    const pins = placesOf(where);
+    const any = ANYWHERE.test(where);
+    // 「어디서나」만 있으면 큰 지도 대신 짧은 표시만
+    if (!pins.length) return any ? `<div class="anywhere-chip">🌿 마을 어디서나 나와요</div>` : "";
+    return `<div class="minimap"><img src="assets/map.webp" alt="" loading="lazy">
+      ${pins.map((p) => `<span class="pin" style="left:${p.x}%;top:${p.y}%" title="${esc(p.name)}">📍</span>`).join("")}
+      ${any ? `<span class="anywhere">🌿 마을 어디서나</span>` : ""}</div>`;
+  }
+  const FO = window.SDV_FORAGE || {};
+
   function pageForage(params) {
     const groups = [...new Set(D.forage.list.map((f) => f.group))];
     const g = ui.forageGroup ?? (params.focus ? "전체" : season());
@@ -702,8 +729,13 @@
       <details class="card" id="map"><summary><span class="title">🗺️ 펠리컨 마을 지도</span></summary><div class="body"><img class="shot" src="assets/map.webp" alt="스타듀밸리 지도: 비밀의 숲, 잉거불 수액 숲, 버스정류장, 펠리컨 마을, 산, 해변 위치" loading="lazy"></div></details>
       ${filterRow("forageGroup", ["전체", ...groups].map((x) => [x, x]), g)}`;
     for (const f of list) {
-      h += `<div class="card" id="x-${esc(norm(f.name))}"><div class="daybar" style="flex-wrap:wrap">${ii(f.name, 32)}<span class="title">${esc(f.name)}${needMark(f.name)}</span>${tag(f.group)}</div>
-        <div class="sub">📍 ${br(f.where)}</div>
+      const fi = FO[norm(f.name)] || {};
+      h += `<div class="card" id="x-${esc(norm(f.name))}">
+        <div class="fishhead"><span class="bigslot">${ii(f.name, 44)}</span>
+          <div style="min-width:0;flex:1"><div class="daybar" style="flex-wrap:wrap"><span class="title">${esc(f.name)}${needMark(f.name)}</span><span class="right">${tag(f.group)}</span></div>
+          <div class="sub">${fi.price ? `💰 ${fi.price}g` : ""}${fi.energy ? ` · ⚡ 기력 ${fi.energy}` : ""}</div>
+          <div class="where">📍 ${br(f.where)}</div></div></div>
+        ${miniMap(f.where)}
         ${f.notes.length ? `<ul class="plain small">${f.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</div>`;
     }
     return h;

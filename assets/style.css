@@ -143,6 +143,8 @@ details.card > summary {
 }
 details.card > summary::-webkit-details-marker { display: none; }
 details.card > summary::after { content: "▾"; margin-left: auto; color: var(--muted); transition: transform .15s; }
+/* 오른쪽 숫자(.right)가 있으면 그게 오른쪽으로 밀고, 화살표는 그 바로 옆에 붙는다 */
+details.card > summary:has(.right)::after { margin-left: 8px; }
 details.card[open] > summary::after { transform: rotate(180deg); }
 details.card > .body { padding: 0 14px 14px; }
 .title { font-weight: 800; font-size: 17px; color: var(--wood-dark); }
@@ -337,3 +339,12 @@ details.bad > summary { cursor: pointer; color: var(--muted); font-weight: 700; 
 .diff.mid .dbar i { background: #e2b33a; } .diff.mid b { color: #9a6b00; }
 .diff.hard .dbar i { background: #e07a2e; } .diff.hard b { color: #b5521a; }
 .diff.vhard .dbar i { background: #c8381f; } .diff.vhard b { color: var(--rec); }
+
+/* 채집 위치 미니 지도 */
+.where { font-size: 14px; margin-top: 2px; }
+.minimap { position: relative; margin: 8px 0 2px; border: 3px solid var(--wood); border-radius: 6px; overflow: hidden; max-width: 420px; }
+.minimap img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.minimap.any img { opacity: .85; }
+.minimap .pin { position: absolute; transform: translate(-50%, -100%); font-size: 22px; filter: drop-shadow(0 2px 0 rgba(0,0,0,.45)); }
+.minimap .anywhere { position: absolute; left: 8px; bottom: 8px; background: rgba(255, 246, 220, .92); border: 2px solid var(--wood); border-radius: 4px; padding: 2px 8px; font-size: 13px; font-weight: 700; }
+.anywhere-chip { display: inline-block; margin: 6px 0 2px; background: var(--ok-bg); color: var(--ok); border-radius: 4px; padding: 2px 10px; font-size: 13px; font-weight: 700; }
