@@ -857,7 +857,13 @@
       let body = "", last = null;
       for (const i of items) {
         if (i.cond && i.cond !== last) { body += `<h3>${esc(i.cond)}</h3>`; last = i.cond; }
-        body += `<div class="check" style="cursor:default" id="x-${esc(norm(i.name))}">${ii(i.name, 32) || `<span class="ii-empty"></span>`}<div><div class="nm">${esc(i.name)}</div><div class="sub">${esc(i.mats)}</div></div></div>`;
+        // 재료 「나무 (10), 석탄 (1)」 를 그림 달린 칩으로
+        const mats = i.mats.split(/,\s*/).filter(Boolean).map((m) => {
+          const mm = m.match(/^(.*?)\s*\((\d+)\)\s*$/);
+          const nm = mm ? mm[1] : m;
+          return `<span class="chip">${ii(nm, 18)}${esc(nm)}${mm ? ` ×${mm[2]}` : ""}</span>`;
+        }).join("");
+        body += `<div class="check" style="cursor:default" id="x-${esc(norm(i.name))}"><span class="bigslot">${ii(i.name, 44)}</span><div style="min-width:0"><div class="nm">${esc(i.name)}</div><div class="chips" style="margin-top:4px">${mats}</div></div></div>`;
       }
       if (sec.notes.length) body += `<p class="small muted">${sec.notes.map(esc).join("<br>")}</p>`;
       h += `<details class="card" id="sec-${D.crafting.sections.indexOf(sec)}"${q || hit ? " open" : ""}><summary><span class="title">${esc(sec.title.replace(/으로 배울 수 있는 제작법$/, ""))}</span><span class="right sub">${items.length}</span></summary><div class="body">${body}</div></details>`;

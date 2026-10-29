@@ -55,6 +55,12 @@ def collect():
     names |= {f["name"] for f in d["forage"]["list"]}
     for sec in d["crafting"]["sections"]:
         names |= {i["name"] for i in sec["items"]}
+        # 제작 재료 「나무 (10), 석탄 (1)」
+        for i in sec["items"]:
+            names |= {re.sub(r"\s*\(\d+\)\s*$", "", m).strip() for m in re.split(r",\s*", i["mats"]) if m.strip()}
+    # 건물 재료 「나무 300개」
+    for b in d["buildings"]["robin"] + d["buildings"]["wizard"]:
+        names |= {c for c in b["cost"] if "골드" not in c}
     out = {}
     for n in names:
         c = clean(n)
