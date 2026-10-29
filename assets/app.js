@@ -566,6 +566,46 @@
   }
 
   // ---------------------------------------------------------------- 성장달력 (계절별로 모든 작물을 한 화면에)
+  // 한 번 거둘 때 여러 개 나오는 작물 (위키 기준). 나머지는 1개로 센다.
+  const YIELD = { 블루베리: 3, 크랜베리: 2 };
+  // 씨앗값. 「600~1000」 처럼 범위면 비싼 쪽으로 잡는다. 「X」(상점에서 안 팜)면 null.
+  function seedCost(c) {
+    const nums = (String(c.seedPrice ?? "").match(/[\d,]+/g) || []).map((x) => +x.replace(/,/g, "")).filter(Boolean);
+    return nums.length ? Math.max(...nums.slice(0, 2)) : null;
+  }
+  // 밭 한 칸에 p일부터 심어 계절(다계절이면 이어지는 계절) 끝까지 남는 돈. 기본 품질·직업 없음·가공 안 함.
+  function profitOf(c, g, p, si) {
+    if (c.name === "커피콩") return null; // 씨앗이 곧 수확물이라 이 식으로는 안 맞는다
+    const seed = seedCost(c);
+    if (seed == null || typeof c.sell[0] !== "number") return null;
+    const re = regrowOf(c);
+    const hv = harvestDays(c, g, p, spanOf(c, si) * 28);
+    if (!hv.length) return { profit: -seed, n: 0 };
+    return { profit: hv.length * (YIELD[c.name] || 1) * c.sell[0] - seed * (re ? 1 : hv.length), n: hv.length };
+  }
+
+  const money = (n) => `<b class="${n >= 0 ? "gold" : "loss"}">${n >= 0 ? "+" : "−"}${Math.abs(n).toLocaleString("ko-KR")}g</b>`;
+
+  function recoCard(gs, p, fert, si, list) {
+    const ranked = list.map((c) => ({ c, r: profitOf(c, c.grow[fert], p, si) })).filter((x) => x.r && x.r.n)
+      .sort((a, b) => b.r.profit - a.r.profit);
+    const top = ranked.slice(0, 5);
+    const need = list.filter((c) => stillNeeded(c.name).length);
+    const bdays = villagers.filter((v) => v.birthday && v.birthday.season === gs)
+      .map((v) => ({ v, crops: v.gifts.filter((g) => list.some((c) => norm(c.name) === norm(g.name))) }))
+      .filter((x) => x.crops.length);
+    const memos = list.flatMap((c) => c.notes.filter((n) => /BEST/.test(n)).map((n) => ({ c, n })));
+    let h = `<div class="card reco"><div class="title">💡 ${gs} 추천 <span class="sub">1년차 참고용</span></div>`;
+    if (top.length) h += `<h3>💰 돈 되는 작물 <span class="sub">밭 한 칸에 ${gs} ${p}일부터 심으면 남는 돈</span></h3>
+      <ol class="rank">${top.map(({ c, r }) => `<li>${cropIcon(c.name, 22)} ${link("crops", c.name, esc(c.name), "")} ${money(r.profit)} <span class="sub">${r.n}번 수확${spanOf(c, si) > 1 ? ` · ${c.seasons.filter((x) => SEASONS.indexOf(x) >= si).join("·")}` : ""}</span></li>`).join("")}</ol>`;
+    if (need.length) h += `<h3>📦 번들에 아직 필요</h3><div class="chips">${need.map((c) => link("bundles", stillNeeded(c.name)[0].bundle.name, `${cropIcon(c.name, 18)}${esc(c.name)}`, "chip need")).join("")}</div>`;
+    if (bdays.length) h += `<h3>🎂 ${gs} 생일 선물로 키우기</h3><ul class="plain small">${bdays.map(({ v, crops }) =>
+      `<li>${face(v.name, 20)} <b>${esc(v.name)}</b> <span class="muted">${v.birthday.day}일</span> ← ${crops.map((g) => `${ii(g.name, 16)}${esc(g.name)}`).join(", ")}</li>`).join("")}</ul>`;
+    if (memos.length) h += `<h3>📝 원작자 메모</h3><ul class="plain small">${memos.map(({ c, n }) => `<li><b>${esc(c.name)}</b> — ${esc(n)}</li>`).join("")}</ul>`;
+    h += `<p class="small muted" style="margin:8px 0 0">기본 품질·직업 없음·가공 안 함·비료값 제외로 계산했어요. 씨앗을 상점에서 안 파는 작물과 커피콩은 순위에서 빠져요.</p></div>`;
+    return { html: h, top3: new Set(top.slice(0, 3).map((x) => x.c.name)) };
+  }
+
   function pageGrowCal() {
     const gs = ui.gcSeason ?? (season() === "겨울" ? "봄" : season());
     const from = ui.gcFrom ?? "1";
@@ -578,14 +618,17 @@
       ${filterRow("gcFrom", [["1", `${gs} 1일에 심기`], ...(gs === season() ? [["today", `오늘(${date.d}일) 심기`]] : [])], gs === season() ? from : "1")}
       ${filterRow("gcFert", ["비료X", "성장촉진", "디럭스", "하이퍼"].map((l, i) => [i, l]), fert)}`;
     const list = D.crops.list.filter((c) => c.seasons.includes(gs) && typeof c.grow[fert] === "number");
+    const reco = recoCard(gs, p, fert, si, list);
+    h += reco.html;
     for (const c of list) {
       const g = c.grow[fert];
       const span = spanOf(c, si);
       const hv = harvestDays(c, g, p, span * 28);
       const inThis = hv.filter((d) => d <= 28).length;
+      const pr = profitOf(c, g, p, si);
       h += `<a class="card gc hit" href="#/crops?focus=${encodeURIComponent(c.name)}">
-        <div class="daybar" style="gap:6px">${cropIcon(c.name, 26)}<span class="title">${esc(c.name)}${needMark(c.name)}</span>
-          <span class="right sub">${g}일${regrowOf(c) ? ` · 🔁${regrowOf(c)}일` : ""} · <b>${gs}에 ${inThis}번</b>${span > 1 ? ` <span class="muted">(+다음 계절)</span>` : ""}</span></div>
+        <div class="daybar" style="gap:6px;flex-wrap:wrap">${cropIcon(c.name, 26)}<span class="title">${reco.top3.has(c.name) ? "🏆 " : ""}${esc(c.name)}${needMark(c.name)}</span>
+          <span class="right sub">${g}일${regrowOf(c) ? ` · 🔁${regrowOf(c)}일` : ""} · <b>${gs}에 ${inThis}번</b>${span > 1 ? ` <span class="muted">(+다음 계절)</span>` : ""}${pr && pr.n ? ` · ${money(pr.profit)}` : ""}</span></div>
         ${drawCal(c, { si, span, p, g, re: regrowOf(c), hv, interactive: false, seasons: 1 })}</a>`;
     }
     return h;

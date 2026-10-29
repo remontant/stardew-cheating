@@ -292,3 +292,9 @@ a.card.gc { display: block; }
 
 img.ii { margin-right: 2px; flex: none; }
 .check > img.ii, .check > .ii-empty { width: 32px; height: 32px; object-fit: contain; flex: none; margin-top: 2px; }
+
+.gold { color: var(--gold); }
+.loss { color: var(--rec); }
+.reco h3 { margin: 12px 0 6px; }
+ol.rank { margin: 0; padding-left: 22px; }
+ol.rank li { margin: 4px 0; }
