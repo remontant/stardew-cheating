@@ -254,6 +254,31 @@
     return h + `</div>`;
   }
 
+  // ---------------------------------------------------------------- 성장 단계 그림 (위키에서 받은 도트)
+  const ST = window.SDV_STAGES || {};
+  const px = (src, h, alt = "") => src ? `<img class="px" src="${esc(src)}" alt="${esc(alt)}" style="height:${h}px" loading="lazy">` : "";
+  const cropIcon = (name, h = 24) => px(ST[name] && ST[name].icon, h);
+  // 심고 t 일째에 보이는 단계 그림. 비료 등으로 g 가 짧아지면 단계 길이를 같은 비율로 줄여서 고른다.
+  function stageImg(name, t, g) {
+    const st = ST[name];
+    if (!st) return null;
+    const stages = st.stages.filter((x) => x.kind === "stage" && x.days);
+    const base = stages.reduce((a, x) => a + x.days, 0);
+    if (!base) return null;
+    const scaled = (t * base) / g;
+    let cum = 0;
+    for (const x of stages) { cum += x.days; if (scaled < cum) return x.img; }
+    return stages[stages.length - 1].img;
+  }
+  const regrowImg = (name) => { const st = ST[name]; const r = st && st.stages.find((x) => x.kind === "regrow"); return r ? r.img : null; };
+  function stageStrip(c) {
+    const st = ST[c.name];
+    if (!st) return "";
+    return `<div class="plant"><b>🌱 성장 단계</b> <span class="small muted">비료 없이</span><div class="strip">${st.stages.map((x) =>
+      `<div>${px(x.img, 48)}<span>${x.kind === "harvest" ? "수확" : x.kind === "regrow" ? "다시 열림" : esc(String(x.days ?? ""))+"일"}</span></div>`).join("")}</div>
+      <p class="small muted" style="margin:4px 0 0">${st.stages.filter((x) => x.kind !== "stage").map((x) => esc(x.label.replace("Total:", "총").replace("Regrowth:", "재수확").replace(/Days?/, "일"))).join(" · ")}</p></div>`;
+  }
+
   // 농사 달력: 심는 날을 고르면 자라는 날·수확일을 계절 달력 위에 칠한다.
   // 날짜를 누르면 그날 심는 걸로 바뀐다. 다계절 작물은 이어지는 계절 달력까지 그린다.
   function farmCal(c) {
@@ -301,10 +326,15 @@
       for (let d = 1; d <= 28; d++) {
         const abs = k * 28 + d;
         let cls = "", ico = "";
-        if (abs === p) { cls = "pl"; ico = "🫘"; }
-        else if (hset.has(abs)) { cls = "hv"; ico = "🧺"; }
-        else if (hv.length && abs > p && abs < hv[0]) { cls = "gr"; ico = "🌱"; }
-        else if (hv.length && abs > hv[0] && abs < hv[hv.length - 1]) { cls = re ? "rg" : "gr"; ico = re ? "🌿" : "🌱"; }
+        // 그림이 있으면 그날 단계의 도트를, 없으면 이모지를 쓴다
+        const sp = (src, fb) => (src ? px(src, 26) : fb);
+        if (abs === p) { cls = "pl"; ico = sp(stageImg(c.name, 0, g), "🫘"); }
+        else if (hset.has(abs)) { cls = "hv"; ico = sp(ST[c.name] && ST[c.name].icon, "🧺"); }
+        else if (hv.length && abs > p && abs < hv[0]) { cls = "gr"; ico = sp(stageImg(c.name, abs - p, g), "🌱"); }
+        else if (hv.length && abs > hv[0] && abs < hv[hv.length - 1]) {
+          cls = re ? "rg" : "gr";
+          ico = re ? sp(regrowImg(c.name) || stageImg(c.name, g - 1, g), "🌿") : sp(stageImg(c.name, (abs - p) % g, g), "🌱");
+        }
         const ev = (days[d] && days[d].events[0]) || "";
         const today = sn === season() && d === date.d ? " today" : "";
         h += `<button class="${cls}${today}" data-fc="${nm}" data-k="day" data-s="${sn}" data-v="${d}"><span class="n">${d}</span><span class="ico">${ico}</span>${ev ? `<span class="ev">${esc(ev)}</span>` : ""}</button>`;
@@ -369,7 +399,7 @@
     else {
       crops.sort((a, b) => (b.r.ok - a.r.ok) || a.r.days - b.r.days);
       h += `<table class="t"><thead><tr><th>작물</th><th>자라는 날</th><th>첫 수확</th><th>판매가</th></tr></thead><tbody>${crops.map(({ c, r }) =>
-        `<tr style="${r.ok ? "" : "opacity:.45"}"><td>${link("crops", c.name, esc(c.name), "")}${needMark(c.name)}${regrowOf(c) ? " 🔁" : ""}</td><td>${r.days}일</td><td>${r.ok ? harvestOf(c, r.days).text : "✕ 시듦"}</td><td>${gold(c.sell[0])}</td></tr>`).join("")}</tbody></table>
+        `<tr style="${r.ok ? "" : "opacity:.45"}"><td>${cropIcon(c.name, 18)} ${link("crops", c.name, esc(c.name), "")}${needMark(c.name)}${regrowOf(c) ? " 🔁" : ""}</td><td>${r.days}일</td><td>${r.ok ? harvestOf(c, r.days).text : "✕ 시듦"}</td><td>${gold(c.sell[0])}</td></tr>`).join("")}</tbody></table>
         <p class="small muted" style="margin:0">비료·직업 없는 기준. 흐린 줄은 계절이 바뀌어 시들어요. 🔁 = 한 번 심으면 계속 열림, 📦 = 번들에 아직 필요. 작물을 누르면 비료별 수확일이 나와요.</p>`;
     }
     h += `</div>`;
@@ -471,7 +501,7 @@
   function cropBody(c) {
     const g = c.grow, sl = c.sell;
     const row = (label, arr) => `<tr><td>${label}</td>${arr.map((x) => `<td>${x ?? "-"}</td>`).join("")}</tr>`;
-    let h = plantNow(c) + farmCal(c) + `<dl class="kv"><dt>씨앗</dt><dd>${br(c.source)}</dd><dt>씨앗값</dt><dd>${typeof c.seedPrice === "number" ? gold(c.seedPrice) : br(c.seedPrice)}</dd>
+    let h = plantNow(c) + stageStrip(c) + farmCal(c) + `<dl class="kv"><dt>씨앗</dt><dd>${br(c.source)}</dd><dt>씨앗값</dt><dd>${typeof c.seedPrice === "number" ? gold(c.seedPrice) : br(c.seedPrice)}</dd>
       ${c.memo ? `<dt>참고</dt><dd>${esc(c.memo)}</dd>` : ""}</dl>`;
     if (c.notes.length) h += `<ul class="plain">${c.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`;
     const lb = lovedBy.get(norm(c.name));
@@ -498,7 +528,7 @@
     for (const c of list) {
       const r = cropReady(c);
       h += `<details class="card" id="x-${esc(norm(c.name))}"${params.focus && norm(params.focus) === norm(c.name) ? " open" : ""}>
-        <summary><span class="title">${esc(c.name)}${needMark(c.name)}</span> ${c.seasons.map(tag).join(" ")}
+        <summary>${cropIcon(c.name, 28)}<span class="title">${esc(c.name)}${needMark(c.name)}</span> ${c.seasons.map(tag).join(" ")}
           <span class="right sub">${typeof c.grow[0] === "number" ? c.grow[0] + "일 · " : ""}${gold(c.sell[0])}</span>
           ${r ? `<span class="badge${r.ok ? "" : " warn"}">${r.ok ? "지금 심어도 OK" : "이번 계절엔 늦음"}</span>` : ""}</summary>
         <div class="body">${cropBody(c)}</div></details>`;
@@ -638,7 +668,7 @@
   const PC_ONLY = /PC버전|모드나 리텍/;
   function pageBasics() {
     return `<h1>📖 뉴비 기초</h1>
-      <div class="card"><ul class="plain">${D.basics.tips.filter((t) => !t.includes("뉴비 집중") && !PC_ONLY.test(t)).map((t) => `<li style="margin:6px 0">${esc(t)}</li>`).join("")}</ul></div>
+      <div class="card"><ul class="plain">${D.basics.tips.filter((t) => !t.includes("뉴비 집중") && !PC_ONLY.test(t)).map((t) => `<li style="margin:6px 0">${esc(t)}${t.includes("황금호두") ? `<br><a href="${esc(D.author.url)}/search?query=${encodeURIComponent("황금호두")}" target="_blank" rel="noopener">▶ 에글이 채널에서 황금호두 영상 찾기</a>` : ""}</li>`).join("")}</ul></div>
       <p class="small muted">PC·모드 관련 팁은 스위치에선 해당이 없어서 뺐어요. 원작자: <a href="${esc(D.author.url)}" target="_blank" rel="noopener">유튜브 에글이</a> · <a href="${esc(D.source)}" target="_blank" rel="noopener">원본 구글 시트</a></p>
       <h2>이 폰에 저장된 것</h2>
       <div class="card small">게임 날짜·번들 체크는 농장마다 따로 저장돼요.<br><button class="btn" data-act="reset" style="margin-top:8px">${esc(curFarm().name)} 번들 체크 지우기</button></div>`;
