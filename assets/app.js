@@ -225,18 +225,48 @@
     ["dislike", "👎", "싫어함", "−20"],
     ["hate", "💢", "혐오함", "−40"],
   ];
+  // 보편적인 선물 (위키 「모든 선물 목록」). 주민이 다른 단계에 따로 올린 아이템이나
+  // 같은 종류를 따로 적은 경우(헤일리의 「모든 야채」 싫어함 등)는 그 주민에게서 뺀다.
+  const GU = window.SDV_GIFTS_UNI || {};
+  const GROUP_ICON = { "과수 과일": "🍑", 보석: "💎", "채집 광물": "🪨", 꽃: "🌸", 야채: "🥕", 요리: "🍳", "장인 제작품": "🍷", 달걀: "🥚", 우유: "🥛", 과일: "🍓", 버섯: "🍄", 생선: "🐟", 책: "📕", 유물: "🏺" };
+  const catKey = (note) => ((note.match(/^모든\s+([^(,;]+)/) || [])[1] || "").trim();
+  const UNI_KEYS = new Set(Object.values(GU).flatMap((u) => u.notes.map(catKey)));
+  function uniFor(v, lv) {
+    const u = GU[lv];
+    if (!u) return { items: [], notes: [] };
+    const g = GF[v.name] || {};
+    const own = new Set(), cats = [];
+    for (const l of ["love", "like", "neutral", "dislike", "hate"]) {
+      const x = g[l] || { items: [], notes: [] };
+      for (const i of x.items) own.add(norm(i.name));
+      for (const n of x.notes) cats.push(catKey(n));
+    }
+    if (lv === "love") for (const x of v.gifts) own.add(norm(x.name));
+    const overridden = (k) => cats.some((c) => c === k || (c.startsWith(k + " ") && !UNI_KEYS.has(c)));
+    return { items: u.items.filter((i) => !own.has(norm(i.name))), notes: u.notes.filter((n) => !overridden(catKey(n))) };
+  }
+  function itemChip(i, mark, cls = "") {
+    return `<span class="chip${i.rec ? " rec" : ""}${cls}"><span class="lvm">${mark}</span>${i.img ? `<img class="px ii" src="${esc(i.img)}" alt="" style="height:20px" loading="lazy">` : ii(i.name)}${esc(i.name)}${i.memo ? ` <span class="muted small">${esc(i.memo)}</span>` : ""}</span>`;
+  }
+  // 「모든 채집 광물 (석영 제외)」 → 칩 하나: 종류는 굵게, 괄호 안은 흐리게
+  function groupChip(note) {
+    const at = note.indexOf(" (");
+    const head = at < 0 ? note : note.slice(0, at), rest = at < 0 ? "" : note.slice(at + 1);
+    return `<span class="chip grp">${GROUP_ICON[catKey(note)] || "📦"} ${esc(head)}${rest ? ` <span class="muted small">${esc(rest)}</span>` : ""}</span>`;
+  }
+  const UNI_LABEL = { love: "다들 사랑하는 것", like: "다들 좋아하는 것", dislike: "다들 싫어하는 것", hate: "다들 혐오하는 것" };
   function levelChips(v, lv, mark) {
     const g = (GF[v.name] || {})[lv] || { items: [], notes: [] };
-    let items = g.items.map((i) => ({ name: i.name, img: i.img, rec: false }));
+    let items = g.items.map((i) => ({ name: i.name, img: i.img, memo: i.memo, rec: false }));
     if (lv === "love") {
       // 시트의 사랑 목록(빨간 = 구하기 쉬움)을 앞에 두고, 위키에만 있는 것을 뒤에 붙인다
       const seen = new Set(v.gifts.map((x) => norm(x.name)));
       items = [...v.gifts.map((x) => ({ name: x.name, memo: x.memo, rec: x.rec })), ...items.filter((i) => !seen.has(norm(i.name)))];
     }
-    if (!items.length && !g.notes.length) return "";
-    return `<div class="lvrow lv-${lv}">${items.map((i) =>
-      `<span class="chip${i.rec ? " rec" : ""}"><span class="lvm">${mark}</span>${i.img ? `<img class="px ii" src="${esc(i.img)}" alt="" style="height:20px" loading="lazy">` : ii(i.name)}${esc(i.name)}${i.memo ? ` <span class="muted small">${esc(i.memo)}</span>` : ""}</span>`).join("")}
-      ${g.notes.length ? `<span class="small muted lvnote">${mark} ${g.notes.map(esc).join(" · ")}</span>` : ""}</div>`;
+    const u = uniFor(v, lv);
+    if (!items.length && !g.notes.length && !u.items.length && !u.notes.length) return "";
+    return `<div class="lvrow lv-${lv}">${items.map((i) => itemChip(i, mark)).join("")}${g.notes.map(groupChip).join("")}
+      ${u.items.length || u.notes.length ? `<span class="small muted lvnote">${mark} ${UNI_LABEL[lv]}</span>${u.items.map((i) => itemChip(i, mark, " uni")).join("")}${u.notes.map(groupChip).join("")}` : ""}</div>`;
   }
   function giftLevels(v) {
     const [love, like, dis, hate] = LV.map(([lv, mark]) => levelChips(v, lv, mark));
@@ -551,6 +581,8 @@
   }
 
   // ---------------------------------------------------------------- 번들
+  // 방을 다 채우면 열리는 것, 꾸러미마다 받는 보상 (위키)
+  const RW = window.SDV_REWARDS || {};
   function bundleNeed(b) { return b.pick || b.items.length; }
   function bundleDone(b) { return b.items.filter((it) => done.has(b.name + "|" + it.label)).length; }
 
@@ -566,7 +598,9 @@
       ${filterRow("bundleView", [["all", "전체"], ["season", `${s}에만 구할 수 있는 것`], ["left", "안 모은 것만"]], view)}`;
     for (const room of D.bundles.rooms) {
       let rh = "";
-      for (const b of room.bundles) {
+      const rw = RW[room.room] || { bundles: [] };
+      for (const [bi, b] of room.bundles.entries()) {
+        const prize = rw.bundles[bi];
         const need = bundleNeed(b), have = bundleDone(b), complete = have >= need;
         let items = b.items;
         if (view === "season") items = items.filter(onlyNow);
@@ -577,6 +611,7 @@
           <summary><span class="title">${esc(b.name)}</span>
             ${b.pick ? `<span class="sub">${b.items.length}개 중 ${b.pick}개</span>` : ""}
             <span class="right">${complete ? `<span class="badge">완료</span>` : `<span class="sub">${have}/${need}</span>`}</span>
+            ${prize ? `<span class="prize">🎁 ${ii(prize[0], 18)}${esc(prize[0])}${prize[1] > 1 ? ` ×${prize[1]}` : ""}</span>` : ""}
             <span class="slots">${b.items.map((it) => {
               // 게임의 번들 칸처럼: 낸 것은 진하게, 아직은 흐리게
               const got = done.has(b.name + "|" + it.label);
@@ -590,7 +625,8 @@
               <span class="bigslot">${ii(it.label, 44) || (it.cat === "골드" ? "🪙" : "")}</span><div><div class="nm">${esc(it.label)}${it.times > 1 ? ` ×${it.times}` : ""}</div><div>${where}</div></div></label>`;
           }).join("")}</div></details>`;
       }
-      if (rh) h += `<h2>${esc(room.room)}</h2>${room.note ? `<p class="small muted">${esc(room.note)}</p>` : ""}${rh}`;
+      if (rh) h += `<h2>${esc(room.room)}${rw.unlock ? ` <span class="unlock">→ ${esc(rw.unlock)}</span>` : ""}</h2>
+        ${rw.desc || room.note ? `<p class="small muted">${esc([rw.desc, room.note].filter(Boolean).join(" · "))}</p>` : ""}${rh}`;
     }
     return h;
   }
@@ -616,14 +652,45 @@
     return h;
   }
 
+  // ---------------------------------------------------------------- 과일나무 (위키, 시트에 없음)
+  const FT = window.SDV_FRUITTREES || { rules: [], list: [] };
+  const TREE_DAYS = 28;
+  // 오늘 심으면 다 자라는 날, 그리고 처음 열매가 열리는 날 (밖에 심은 기준)
+  function treeDates(t) {
+    const o = ordOf(date.s, date.d) + TREE_DAYS;
+    const at = (n) => ({ y: date.y + Math.floor(n / 112), s: Math.floor((n % 112) / 28), d: (n % 28) + 1 });
+    const grown = at(o);
+    // 다 자란 날이 제철이 아니면 다음 제철 1일에 처음 열린다
+    const ts = SEASONS.indexOf(t.season);
+    const fruit = grown.s === ts ? o : o + ((ts - grown.s + 4) % 4) * 28 - (grown.d - 1);
+    return { grown, fruit: at(fruit) };
+  }
+  const yText = (dt) => `${dt.y > date.y ? (dt.y - date.y === 1 ? "내년 " : `${dt.y - date.y}년 뒤 `) : ""}${SEASONS[dt.s]} ${dt.d}일`;
+  function treeCard(t, params) {
+    const { grown, fruit } = treeDates(t);
+    const soon = fruit.y === grown.y && fruit.s === grown.s && fruit.d === grown.d;
+    const lb = lovedBy.get(norm(t.name));
+    return `<details class="card" id="x-${esc(norm(t.tree))}"${params.focus && norm(params.focus) === norm(t.tree) ? " open" : ""}>
+      <summary>${ii(t.name, 28)}<span class="title">${esc(t.tree)}${needMark(t.name)}</span> ${tag(t.season)}
+        <span class="right sub">${gold(t.sell)}</span>
+        <span class="badge${soon ? "" : " warn"}">${soon ? "자라면 바로 열림" : `첫 열매 ${yText(fruit)}`}</span></summary>
+      <div class="body"><div class="plant"><b>📅 오늘(${season()} ${date.d}일) 심으면</b>
+        <p style="margin:4px 0 0">🌳 <b>${yText(grown)}</b>에 다 자라요 → ${soon ? `바로 ${esc(t.season)} 내내 하루 1개씩` : `${esc(t.season)}이 와야 열려요: <b>${yText(fruit)}</b>부터 하루 1개씩`}</p></div>
+        <dl class="kv"><dt>묘목</dt><dd>${esc(t.shop)} · ${t.sapling ? gold(t.sapling) : esc(t.trade)}</dd>
+          <dt>열매</dt><dd>${ii(t.name)}${esc(t.name)} ${gold(t.sell)} <span class="muted small">(1년마다 은별 → 금별 → 이리듐)</span></dd>
+          <dt>제철</dt><dd>${esc(t.season)} 28일 동안 최대 28개 · 온실·진저섬은 매일</dd></dl>
+        ${lb ? `<p class="small">💝 좋아하는 주민: ${lb.map((x) => link("gifts", x.v.name, esc(x.v.name), "")).join(", ")}</p>` : ""}</div></details>`;
+  }
+
   function pageCrops(params) {
     const fs = ui.cropSeason ?? (params.focus ? "전체" : season());
     const fc = ui.cropCat ?? "전체";
-    const list = D.crops.list.filter((c) => (fs === "전체" || c.seasons.includes(fs)) && (fc === "전체" || c.cat === fc));
+    const list = fc === "과일나무" ? [] : D.crops.list.filter((c) => (fs === "전체" || c.seasons.includes(fs)) && (fc === "전체" || c.cat === fc));
+    const trees = fc === "전체" || fc === "과일나무" ? FT.list.filter((t) => fs === "전체" || t.season === fs) : [];
     let h = `<h1>🌱 작물</h1>${notesBlock(D.crops.notes, D.crops.video)}
       ${filterRow("cropSeason", ["전체", ...SEASONS.slice(0, 3), "그 외"].map((x) => [x, x]), fs)}
-      ${filterRow("cropCat", ["전체", "과일", "야채", "꽃", "기타"].map((x) => [x, x]), fc)}`;
-    if (!list.length) h += `<div class="empty">겨울엔 밖에 심는 작물이 없어요. (겨울 씨앗모음·파우더멜론은 「그 외」/「채집」 참고)</div>`;
+      ${filterRow("cropCat", [["전체", "전체"], ["과일", "과일"], ["야채", "야채"], ["꽃", "꽃"], ["기타", "기타"], ["과일나무", "🌳 과일나무"]], fc)}`;
+    if (!list.length && !trees.length) h += `<div class="empty">겨울엔 밖에 심는 작물이 없어요. (겨울 씨앗모음·파우더멜론은 「그 외」/「채집」 참고) 과일나무 묘목은 겨울에 심어도 자라요.</div>`;
     for (const c of list) {
       const r = cropReady(c);
       h += `<details class="card" id="x-${esc(norm(c.name))}"${params.focus && norm(params.focus) === norm(c.name) ? " open" : ""}>
@@ -632,6 +699,9 @@
           ${r ? `<span class="badge${r.ok ? "" : " warn"}">${r.ok ? "지금 심어도 OK" : "이번 계절엔 늦음"}</span>` : ""}</summary>
         <div class="body">${cropBody(c)}</div></details>`;
     }
+    if (trees.length) h += `<h2>🌳 과일나무 <span class="sub">묘목 심고 ${TREE_DAYS}일</span></h2>
+      <details class="card small"><summary><b>과일나무 규칙</b></summary><div class="body"><ul class="plain">${FT.rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div></details>
+      ${trees.map((t) => treeCard(t, params)).join("")}`;
     return h;
   }
 
@@ -770,19 +840,40 @@
       ${fi.move ? `<span class="sub">움직임: ${esc(fi.move)}</span>` : ""}</div>`;
   }
 
+  // 잡히는 시간. 게임 하루는 06시~새벽 2시라 자정 넘긴 시각은 24를 더해 6~26 으로 센다.
+  // 시트에 시간이 비어 있으면 하루 종일.
+  const FISH_SLOTS = [["전체", "시간 전체", 6, 26], ["아침", "🌅 아침 6~12시", 6, 12], ["낮", "☀️ 낮 12~17시", 12, 17],
+    ["저녁", "🌆 저녁 17~22시", 17, 22], ["밤", "🌙 밤 22~2시", 22, 26]];
+  function fishHours(f) {
+    const hr = (h, m) => (h < 6 ? h + 24 : h) + m / 60;
+    const out = [...(f.time || "").matchAll(/(\d\d):(\d\d)\s*~\s*(\d\d):(\d\d)/g)].map((m) => [hr(+m[1], +m[2]), hr(+m[3], +m[4])]);
+    return out.length ? out : [[6, 26]];
+  }
+  const fishTimeOk = (f, slot) => {
+    const sl = FISH_SLOTS.find((x) => x[0] === slot);
+    return !sl || slot === "전체" || fishHours(f).some(([s, e]) => s < sl[3] && e > sl[2]);
+  };
+  function timeBar(f) {
+    const pct = (h) => (((h - 6) / 20) * 100).toFixed(1);
+    return `<span class="tbar">${fishHours(f).map(([s, e]) => `<i style="left:${pct(s)}%;width:${(pct(e) - pct(s)).toFixed(1)}%"></i>`).join("")}</span>
+      <span class="tticks"><span>6시</span><span>10시</span><span>14시</span><span>18시</span><span>22시</span><span>2시</span></span>`;
+  }
+
   function pageFish(params) {
     const areas = [...new Set(D.fish.list.map((f) => f.area))];
     const fs = ui.fishSeason ?? (params.focus ? "전체" : season());
     const fw = ui.fishWeather ?? "전체";
+    const ft = ui.fishTime ?? "전체";
     const fa = ui.fishArea ?? "전체";
     const fo = ui.fishSort ?? "sheet";
-    let list = D.fish.list.filter((f) => (fs === "전체" || f.seasons.includes(fs)) && fishWeatherOk(f, fw) && (fa === "전체" || f.area === fa));
+    let list = D.fish.list.filter((f) => (fs === "전체" || f.seasons.includes(fs)) && fishWeatherOk(f, fw) && fishTimeOk(f, ft) && (fa === "전체" || f.area === fa));
     const dv = (f) => (fishInfo(f) && fishInfo(f).difficulty != null ? fishInfo(f).difficulty : 999);
     if (fo === "easy") list = [...list].sort((a, b) => dv(a) - dv(b));
     if (fo === "hard") list = [...list].sort((a, b) => (dv(b) % 999) - (dv(a) % 999));
     let h = `<h1>🎣 낚시</h1>${notesBlock(D.fish.notes, D.fish.video)}
       ${filterRow("fishSeason", ["전체", ...SEASONS].map((x) => [x, x]), fs)}
       ${filterRow("fishWeather", [["전체", "날씨 전체"], ["맑음", "☀️ 맑음"], ["비", "🌧️ 비"]], fw)}
+      ${filterRow("fishTime", FISH_SLOTS.map((x) => [x[0], x[1]]), ft)}
       ${filterRow("fishArea", ["전체", ...areas].map((x) => [x, x === "전체" ? "장소 전체" : x]), fa)}
       ${filterRow("fishSort", [["sheet", "시트 순서"], ["easy", "쉬운 순"], ["hard", "어려운 순"]], fo)}
       <p class="small muted">📦 = 번들에 아직 필요. 진저섬·광산·통발·그 외 장소는 계절 상관없이 보여요.</p>`;
@@ -796,7 +887,7 @@
           <div class="sub">${esc(f.area)}${f.sub ? " · " + esc(f.sub) : ""}${fishInfo(f) && fishInfo(f).price ? ` · 💰 ${fishInfo(f).price}g` : ""}</div>
           ${diffBar(fishInfo(f))}</div></div>
         <dl class="kv">
-          ${f.time ? `<dt>시간</dt><dd>${br(f.time)}</dd>` : ""}
+          <dt>시간</dt><dd>${f.time ? br(f.time) : "하루 종일"}${timeBar(f)}</dd>
           ${f.weather ? `<dt>날씨</dt><dd>${br(f.weather)}</dd>` : ""}
           ${f.floor ? `<dt>층</dt><dd>${esc(f.floor)}</dd>` : ""}
         </dl>
@@ -994,6 +1085,7 @@
     const idx = [];
     const add = (kind, name, sub, href, extra = "") => idx.push({ kind, name, sub, href, n: norm(name), x: norm(extra) });
     for (const c of D.crops.list) add("작물", c.name, c.seasons.join("·") + " · " + c.source.replace(/\n/g, " "), `#/crops?focus=${encodeURIComponent(c.name)}`, c.notes.join(" "));
+    for (const t of FT.list) add("작물", t.tree, `${t.season} 과일나무 · 묘목 ${t.sapling ? gold(t.sapling) : t.trade} · ${TREE_DAYS}일`, `#/crops?focus=${encodeURIComponent(t.tree)}`, t.name);
     for (const f of D.fish.list) add("물고기", f.name, [f.area, f.sub, f.seasons.length === 4 ? "모든 계절" : f.seasons.join("·"), f.time.replace(/\n/g, " ")].filter(Boolean).join(" · "), `#/fish?focus=${encodeURIComponent(f.area + f.name)}`, f.notes.join(" "));
     for (const f of D.forage.list) add("채집", f.name, f.group + " · " + f.where, `#/forage?focus=${encodeURIComponent(f.name)}`, f.notes.join(" "));
     for (const r of D.cooking.list) add("요리", r.name, r.ings.map((i) => i.name).join(", "), `#/cooking?focus=${encodeURIComponent(r.name)}`, r.ings.map((i) => i.name).join(" "));
@@ -1010,6 +1102,14 @@
     for (const v of villagers) {
       for (const g of v.gifts) put(g.name, v, "love");
       for (const [lv] of LV) for (const i of ((GF[v.name] || {})[lv] || { items: [] }).items) put(i.name, v, lv);
+    }
+    // 보편 선물은 주민을 다 늘어놓지 않고 「모두」로 줄인다 (따로 적힌 주민만 이름으로)
+    for (const [lv, mark] of LV) for (const i of (GU[lv] || { items: [] }).items) {
+      const k = norm(i.name);
+      const who = (byItem.get(k) || { who: {} }).who;
+      byItem.delete(k);
+      const sub = [`${mark} 모두`, ...LV.map(([l, m]) => { const ns = Object.keys(who).filter((n) => who[n] === l && l !== lv); return ns.length ? `${m} ${ns.join(", ")}` : ""; })].filter(Boolean).join("  ");
+      add("선물", i.name, sub, `#/gifts?focus=${encodeURIComponent(Object.keys(who)[0] || villagers[0].name)}`);
     }
     for (const { name, who } of byItem.values()) {
       const sub = LV.map(([lv, mark]) => { const ns = Object.keys(who).filter((n) => who[n] === lv); return ns.length ? `${mark} ${ns.join(", ")}` : ""; }).filter(Boolean).join("  ");

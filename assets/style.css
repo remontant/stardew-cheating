@@ -307,9 +307,17 @@ ol.rank li { margin: 4px 0; }
 .lv-like .chip { background: #fff3c4; }
 .lv-dislike .chip, .lv-hate .chip { background: #ece3d3; color: var(--muted); }
 .lvnote { width: 100%; }
+.lvrow .lvnote:not(:first-child) { margin-top: 2px; }
+/* 보편 선물과 「모든 ○○」 묶음 칩 */
+.chip.uni, .chip.grp { padding: 2px 8px; font-size: 13px; }
+.chip.uni .lvm { display: none; }
+.chip.grp, .lv-like .chip.grp, .lv-dislike .chip.grp, .lv-hate .chip.grp { background: transparent; border: 2px dashed var(--line); }
+.chip.grp { display: inline-block; border-radius: 12px; }
 details.bad > summary { cursor: pointer; color: var(--muted); font-weight: 700; margin: 2px 0 6px; }
 
 /* 번들: 게임 꾸러미 칸처럼 */
+h2 .unlock { font-size: 15px; color: var(--ok); }
+.prize { order: 2; width: 100%; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
 .slots { order: 3; display: flex; flex-wrap: wrap; gap: 4px; width: 100%; margin-top: 2px; }
 .slot { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px;
   background: #e9d3a4; border: 2px solid var(--line); font-size: 18px; }
@@ -339,6 +347,10 @@ details.bad > summary { cursor: pointer; color: var(--muted); font-weight: 700; 
 .diff.mid .dbar i { background: #e2b33a; } .diff.mid b { color: #9a6b00; }
 .diff.hard .dbar i { background: #e07a2e; } .diff.hard b { color: #b5521a; }
 .diff.vhard .dbar i { background: #c8381f; } .diff.vhard b { color: var(--rec); }
+/* 잡히는 시간 막대: 06시 ~ 새벽 2시 (20시간) */
+.tbar { position: relative; display: block; height: 10px; margin-top: 4px; border: 2px solid var(--wood-dark); border-radius: 3px; background: #fff6dc; overflow: hidden; max-width: 320px; }
+.tbar i { position: absolute; top: 0; bottom: 0; background: var(--winter); }
+.tticks { display: flex; justify-content: space-between; max-width: 324px; font-size: 11px; color: var(--muted); }
 
 /* 채집 위치 미니 지도 */
 .where { font-size: 14px; margin-top: 2px; }
