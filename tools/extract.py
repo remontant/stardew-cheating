@@ -469,6 +469,16 @@ def cooking(sh):
 
 # ---------------------------------------------------------------- 제작품
 TITLE_FILL, HEAD_FILL = "FF134F5C", "FFD0E0E3"
+# 상점 제작법 값이 위키(영어 「Carpenter's Shop」·「Crafting」, 한국어 아이템 문서)와 다른 것 — 위키 기준으로 고친다
+CRAFT_FIX = {
+    "나무바닥 (500골드)": ("나무바닥 (100골드)", None),
+    "소박한판자바닥 (500골드)": ("소박한판자바닥 (200골드)", None),
+    "돌바닥 (500골드)": ("돌바닥 (100골드)", None),
+    "디딤돌길 (500골드)": ("디딤돌길 (100골드)", None),
+    "짚바닥 (1,000골드)": ("짚바닥 (200골드)", None),
+    "수정길 * 5 (1,000골드)": ("수정길 * 5 (200골드)", None),
+    "큰석조보관함 (5,000골드)": ("큰석조보관함 (5,000골드)", "광산의 드워프에게서 구매"),  # 크로버스가 아니라 드워프
+}
 
 
 def crafting(sh):
@@ -495,7 +505,8 @@ def crafting(sh):
             if cval:
                 cond = cval
             if name:
-                cur["items"].append({"cond": cond if cur["condLabel"] or cond else "", "name": name, "mats": sh.raw(r, mc)})
+                fixed, where = CRAFT_FIX.get(name, (name, None))
+                cur["items"].append({"cond": where or (cond if cur["condLabel"] or cond else ""), "name": fixed, "mats": sh.raw(r, mc)})
     sections.sort(key=lambda s: (s["row"], s["col"]))
     for s in sections:
         s.pop("row"), s.pop("col")
