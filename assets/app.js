@@ -466,6 +466,51 @@
     return h + `</div>`;
   }
 
+  // ---------------------------------------------------------------- 연차별: 2년차 퀘스트 · 소스의 여왕 레시피
+  // 시트 비고에 흩어진 「2년차 여름 25일 켄트 퀘스트」, 요리의 「소스의 여왕 2년차 봄 7일」을 모은다.
+  const QUESTS = [];
+  {
+    const scan = (text, item, page, focus) => {
+      const m = String(text).match(/(\d)년차\s*(봄|여름|가을|겨울)\s*(\d+)일\s*(.+?)\s*(?:의\s*)?(?:공지\s*)?퀘스트/);
+      if (m) QUESTS.push({ y: +m[1], s: SEASONS.indexOf(m[2]), d: +m[3], who: m[4].replace(/드미트리$/, "드미트리우스"), item, page, focus });
+    };
+    for (const c of D.crops.list) for (const n of c.notes) scan(n, c.name, "crops", c.name);
+    for (const f of D.forage.list) for (const n of f.notes) scan(n, f.name, "forage", f.name);
+    for (const f of D.fish.list) for (const n of f.notes) scan(n, f.name, "fish", f.area + f.name);
+    for (const r of D.cooking.list) for (const n of r.note) scan(n, r.name, "cooking", r.name);
+    QUESTS.sort((a, b) => a.y - b.y || a.s - b.s || a.d - b.d);
+  }
+  const TV = [];
+  for (const r of D.cooking.list) {
+    const m = r.how.join(" ").match(/소스의 여왕\s*(\d)년[차째]\s*(봄|여름|가을|겨울)\s*(\d+)일/);
+    if (m) TV.push({ y: +m[1], s: SEASONS.indexOf(m[2]), d: +m[3], name: r.name });
+  }
+  TV.sort((a, b) => a.y - b.y || a.s - b.s || a.d - b.d);
+  const onDay = (list, y, s, d) => list.filter((x) => x.y === y && x.s === s && x.d === d);
+  const questLine = (q) => `${ii(q.item, 18)}<b>${esc(q.who)}</b>에게 ${link(q.page, q.focus, esc(q.item), "")} 갖다주기`;
+  const tvLine = (t) => `📺 소스의 여왕 ${ii(t.name, 18)}${link("cooking", t.name, esc(t.name), "")} 레시피`;
+
+  function pageYear2() {
+    const Y = window.SDV_YEAR2 || { goals: [] };
+    const seeds = D.crops.list.filter((c) => /2년차/.test(c.source));
+    const q2 = QUESTS.filter((q) => q.y === 2);
+    const tv2 = TV.filter((t) => t.y === 2);
+    let h = `<h1>🗓️ 2년차에 할 것</h1>
+      <p class="small muted" style="margin:-4px 0 10px">2년차 들어서 챙기면 좋은 것들이에요. 지금 게임 날짜: ${esc(dateText())}</p>`;
+    h += Y.goals.map((g, i) => `<details class="card" id="y2-${i}"${i < 2 ? " open" : ""}><summary><span class="title">${esc(g.title)}</span><span class="right sub">${g.items.length}</span></summary>
+      <div class="body"><ul class="plain">${g.items.map((t) => `<li style="margin:5px 0">${esc(t)}</li>`).join("")}</ul></div></details>`).join("");
+    h += `<h2>🛒 2년차부터 파는 씨앗</h2><div class="card"><div class="chips">${seeds.map((c) =>
+      link("crops", c.name, `${cropIcon(c.name, 20)}${esc(c.name)} ${c.seasons.map(tag).join("")}`, "chip")).join("")}</div>
+      <p class="small muted" style="margin:8px 0 0">피에르 잡화점·조자마트에서 2년차부터 팔아요. 1년차엔 여행마차나 씨앗모음으로만 구할 수 있어요.</p></div>`;
+    h += `<h2>📜 2년차 날짜 퀘스트</h2><div class="card"><ul class="plain">${q2.map((q) =>
+      `<li style="margin:6px 0">${tag(SEASONS[q.s])} <b>${q.d}일</b> · ${questLine(q)}</li>`).join("")}</ul>
+      <p class="small muted" style="margin:6px 0 0">그날 게시판·편지로 오는 퀘스트예요. 미리 하나씩 남겨두기!</p></div>`;
+    h += `<h2>📺 2년차 소스의 여왕 레시피</h2><div class="card"><ul class="plain">${tv2.map((t) =>
+      `<li style="margin:5px 0">${tag(SEASONS[t.s])} <b>${t.d}일</b> · ${ii(t.name, 18)}${link("cooking", t.name, esc(t.name), "")}</li>`).join("")}</ul>
+      <p class="small muted" style="margin:6px 0 0">일요일에 TV 요리 채널을 보면 배워요. 놓치면 수요일 재방송에서도 나올 수 있어요.</p></div>`;
+    return h;
+  }
+
   function pageHome() {
     const s = season();
     const today = (D.calendar.days[s] || {})[date.d] || { birthdays: [], events: [] };
@@ -488,18 +533,23 @@
     if (!today.birthdays.length && !today.events.length) h += `<div class="card muted">오늘은 생일도 축제도 없어요.</div>`;
     for (const name of today.birthdays) {
       const v = vByName.get(name);
-      h += `<div class="card"><div class="event"><span class="ico">${face(name, 56) || "🎂"}</span><div><b>${esc(name)}</b> 생일이에요 — 선물 효과 8배!
-        ${v ? `<div style="margin-top:6px">${giftChips(v)}</div>` : ""}</div></div></div>`;
+      const to = `#/gifts?focus=${encodeURIComponent(name)}`;
+      h += `<div class="card"><div class="event"><a class="ico" href="${to}" aria-label="${esc(name)} 선물 보기">${face(name, 56) || "🎂"}</a><div><a class="who" href="${to}">${esc(name)}</a> 생일이에요 — 선물 효과 8배!
+        ${v ? `<div style="margin-top:6px">${giftChips(v)}</div>` : ""}
+        <a class="small" href="${to}">🎁 ${esc(name)} 선물 전체 보기 ›</a></div></div></div>`;
     }
     for (const e of today.events) h += festCard(e);
+    for (const t of onDay(TV, date.y, date.s, date.d)) h += `<div class="card">${tvLine(t)} — 오늘 TV 요리 채널 보기!</div>`;
+    for (const q of onDay(QUESTS, date.y, date.s, date.d)) h += `<div class="card">📜 오늘 퀘스트: ${questLine(q)}</div>`;
 
     const up = [];
     for (let i = 1; i <= 7; i++) {
       const o = ordOf(date.s, date.d) + i;
       const ss = Math.floor((o % 112) / 28), dd = (o % 28) + 1;
-      const day = (D.calendar.days[SEASONS[ss]] || {})[dd];
-      if (!day) continue;
-      const bits = [...day.birthdays.map((n) => `${face(n, 22) || "🎂"} ${link("gifts", n, esc(n), "")}`), ...day.events.map((e) => `${festThumb(e) || "🎉"} ${esc(e)}`)];
+      const yy = date.y + Math.floor(o / 112);
+      const day = (D.calendar.days[SEASONS[ss]] || {})[dd] || { birthdays: [], events: [] };
+      const bits = [...day.birthdays.map((n) => `${face(n, 22) || "🎂"} ${link("gifts", n, esc(n), "")}`), ...day.events.map((e) => `${festThumb(e) || "🎉"} ${esc(e)}`),
+        ...onDay(QUESTS, yy, ss, dd).map((q) => `📜 ${questLine(q)}`), ...onDay(TV, yy, ss, dd).map(tvLine)];
       if (bits.length) up.push(`<li><b>${SEASONS[ss]} ${dd}일 (${dow(dd)})</b> <span class="muted">${i === 1 ? "내일" : i + "일 후"}</span> · ${bits.join(" · ")}</li>`);
     }
     if (up.length) h += `<h3>다가오는 7일</h3><div class="card"><ul class="plain upcoming">${up.join("")}</ul></div>`;
@@ -1140,7 +1190,7 @@
   // ---------------------------------------------------------------- 라우터
   const PAGES = [
     ["", "🏠 홈", pageHome], ["calendar", "📅 달력", pageCalendar], ["gifts", "🎁 선물", pageGifts],
-    ["bundles", "📦 번들", pageBundles], ["crops", "🌱 작물", pageCrops], ["growcal", "📆 성장달력", pageGrowCal], ["fish", "🎣 낚시", pageFish],
+    ["bundles", "📦 번들", pageBundles], ["crops", "🌱 작물", pageCrops], ["growcal", "📆 성장달력", pageGrowCal], ["year2", "🗓️ 2년차", pageYear2], ["fish", "🎣 낚시", pageFish],
     ["forage", "🍄 채집", pageForage], ["cooking", "🍳 요리", pageCooking], ["crafting", "🔨 제작", pageCrafting],
     ["buildings", "🏡 건물", pageBuildings], ["ranges", "📐 배치", pageRanges], ["basics", "📖 기초", pageBasics],
   ];
