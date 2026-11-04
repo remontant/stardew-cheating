@@ -490,15 +490,36 @@
   const questLine = (q) => `${ii(q.item, 18)}<b>${esc(q.who)}</b>에게 ${link(q.page, q.focus, esc(q.item), "")} 갖다주기`;
   const tvLine = (t) => `📺 소스의 여왕 ${ii(t.name, 18)}${link("cooking", t.name, esc(t.name), "")} 레시피`;
 
-  function pageYear2() {
-    const Y = window.SDV_YEAR2 || { goals: [] };
+  const goalCards = (goals, pre) => goals.map((g, i) => `<details class="card" id="${pre}-${i}"${i < 2 ? " open" : ""}><summary><span class="title">${esc(g.title)}</span><span class="right sub">${g.items.length}</span></summary>
+      <div class="body"><ul class="plain">${g.items.map((t) => `<li style="margin:5px 0">${esc(t)}</li>`).join("")}</ul></div></details>`).join("");
+  // 제작품 데이터에서 섹션 하나를 그림 칩으로
+  function craftChips(match) {
+    const sec = D.crafting.sections.find((x) => match.test(x.title));
+    if (!sec) return "";
+    return `<div class="chips">${sec.items.map((i) => link("crafting", i.name, `${ii(i.name, 20)}${esc(i.name)}${i.cond ? ` <span class="muted small">${esc(i.cond)}</span>` : ""}`, "chip")).join("")}</div>`;
+  }
+
+  // 연차별 할 일 (#/years?y=2|3). 기본은 지금 게임 연차에 맞춘다.
+  function pageYears(params) {
+    const y = String(params.y || ui.yearsY || (date.y >= 3 ? 3 : 2));
+    let h = `<h1>🗓️ 연차별 할 일</h1>
+      <div class="filters">${["2", "3"].map((v) => `<a class="f${v === y ? " on" : ""}" href="#/years?y=${v}" style="text-decoration:none">${v}년차${v === "3" ? " 이후" : ""}</a>`).join("")}</div>
+      <p class="small muted" style="margin:4px 0 10px">지금 게임 날짜: ${esc(dateText())}</p>`;
+    return h + (y === "3" ? year3Body() : year2Body());
+  }
+  function year3Body() {
+    const Y = (window.SDV_YEARS || {})[3] || [];
+    let h = goalCards(Y, "y3");
+    h += `<h2>💎 치의 보석으로 사는 것</h2><div class="card">${craftChips(/치의 보석/)}<p class="small muted" style="margin:8px 0 0">진저섬 치의 호두방에서 팔아요.</p></div>`;
+    h += `<h2>🏅 마스터리로 배우는 제작법</h2><div class="card">${craftChips(/마스터리/)}</div>`;
+    return h;
+  }
+  function year2Body() {
+    const Y = (window.SDV_YEARS || {})[2] || [];
     const seeds = D.crops.list.filter((c) => /2년차/.test(c.source));
     const q2 = QUESTS.filter((q) => q.y === 2);
     const tv2 = TV.filter((t) => t.y === 2);
-    let h = `<h1>🗓️ 2년차에 할 것</h1>
-      <p class="small muted" style="margin:-4px 0 10px">2년차 들어서 챙기면 좋은 것들이에요. 지금 게임 날짜: ${esc(dateText())}</p>`;
-    h += Y.goals.map((g, i) => `<details class="card" id="y2-${i}"${i < 2 ? " open" : ""}><summary><span class="title">${esc(g.title)}</span><span class="right sub">${g.items.length}</span></summary>
-      <div class="body"><ul class="plain">${g.items.map((t) => `<li style="margin:5px 0">${esc(t)}</li>`).join("")}</ul></div></details>`).join("");
+    let h = goalCards(Y, "y2");
     h += `<h2>🛒 2년차부터 파는 씨앗</h2><div class="card"><div class="chips">${seeds.map((c) =>
       link("crops", c.name, `${cropIcon(c.name, 20)}${esc(c.name)} ${c.seasons.map(tag).join("")}`, "chip")).join("")}</div>
       <p class="small muted" style="margin:8px 0 0">피에르 잡화점·조자마트에서 2년차부터 팔아요. 1년차엔 여행마차나 씨앗모음으로만 구할 수 있어요.</p></div>`;
@@ -1190,7 +1211,7 @@
   // ---------------------------------------------------------------- 라우터
   const PAGES = [
     ["", "🏠 홈", pageHome], ["calendar", "📅 달력", pageCalendar], ["gifts", "🎁 선물", pageGifts],
-    ["bundles", "📦 번들", pageBundles], ["crops", "🌱 작물", pageCrops], ["growcal", "📆 성장달력", pageGrowCal], ["year2", "🗓️ 2년차", pageYear2], ["fish", "🎣 낚시", pageFish],
+    ["bundles", "📦 번들", pageBundles], ["crops", "🌱 작물", pageCrops], ["growcal", "📆 성장달력", pageGrowCal], ["years", "🗓️ 연차별", pageYears], ["fish", "🎣 낚시", pageFish],
     ["forage", "🍄 채집", pageForage], ["cooking", "🍳 요리", pageCooking], ["crafting", "🔨 제작", pageCrafting],
     ["buildings", "🏡 건물", pageBuildings], ["ranges", "📐 배치", pageRanges], ["basics", "📖 기초", pageBasics],
   ];
@@ -1201,6 +1222,8 @@
   function route() {
     const m = location.hash.replace(/^#\/?/, "").split("?");
     const params = Object.fromEntries(new URLSearchParams(m[1] || ""));
+    // 예전 주소 #/year2 도 연차별 탭(2년차)으로
+    if (m[0] === "year2") return { id: "years", params: { ...params, y: "2" } };
     return { id: m[0] || "", params };
   }
   function setActiveTab(id) {
